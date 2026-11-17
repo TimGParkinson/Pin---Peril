@@ -1,6 +1,6 @@
 # Architecture
 
-Status: Phase 0. Only the presentation shell, `SimConfig`, and the test tooling exist. Everything else below is the plan that later stages implement; sections say which parts are built.
+Status: Phase 1 in progress. Built: the presentation shell, level data (schema, validation, safe loading), the event contract, runtime level instances, and the test tooling. Not built yet: physics, pins, rules and the shared simulation runner. Sections say which parts are built.
 
 ## Toolchain decisions
 
@@ -45,7 +45,12 @@ Dependencies point down or right only. A lower layer never references a higher o
 | presentation | `src/presentation`, `scenes/` | Screens, UI, pin hover/animation, effects, audio. Reads sim state and events. Never decides outcomes. | Yes |
 | progression | `src/progression` | Campaign structure, unlocks, saves, settings under `user://`. Consumes terminal results only. | No |
 
-Built so far: `SimConfig` (sim), `UiMetrics`, `AppRoot`, `MainMenu`, `LevelScreen` (presentation).
+Built so far:
+
+- data: `LevelSchema`, `LevelDefinition`, `LevelCodec`, `LevelValidator`, `LevelGeometry`, `LevelLoader`, `ValidationReport`
+- rules: `LevelEvent`, `EventLog`, `TerminalResult` (event contract only, no rule logic yet)
+- sim: `SimConfig`, `LevelInstance`, `LevelLibrary`
+- presentation: `UiMetrics`, `AppRoot`, `MainMenu`, `LevelScreen`, `BoardView`
 
 ### Presentation shell (built)
 
@@ -73,11 +78,23 @@ How the two consumers use it:
 
 Hard rules: no mocked physics in any test that claims a physics result; visual and audio systems may be disabled in replay but collision shapes, spawn order, rules and physics settings must be identical to release; effects consume events and cannot change outcomes; cosmetic RNG is separate from gameplay.
 
-## Data and IDs (planned, Prompt 02)
+## Data and IDs (built, Prompt 02)
 
-- `LevelDefinition` is a versioned, validated, data-only structure loaded from JSON stored outside the executable resource tree. Validation covers finite numbers, bounded counts and dimensions, unique IDs, references, wall geometry and spawn clearance.
-- Every gameplay object (pin, material, goal, hazard) has a unique stable string ID. Recorded solutions, hints and saves refer to IDs, never indices.
-- User-authored or generated data is never loaded as an executable script or arbitrary Resource.
+Full reference: [LEVEL_FORMAT.md](LEVEL_FORMAT.md).
+
+- `LevelDefinition` is a versioned, validated, data-only structure. It never contains physics bodies or mutable play state.
+- Pipeline for any level, whoever made it: JSON text, `JSON` class (plain values only), `LevelCodec.from_variant` (strict types and keys), `LevelValidator.validate` (finite numbers, bounded counts and sizes, unique ids, references, wall geometry, supported mechanics, pin geometry, spawn clearances), then `LevelInstance.create` (validates again, deep-copies). Hand-authored files, the future editor and future generators all use it. A generator that cannot pass the validator has no way to reach the game.
+- Built-in levels: `res://levels/<id>.json`, read as text. Imported, authored or generated levels: `user://levels/<id>.json`, outside the executable resource tree. Nothing from a level file is ever passed to `load()` or executed.
+- The validator takes the supported simulation config version as a parameter so the data layer does not depend on the sim layer. `LevelLibrary` (sim) supplies `SimConfig.CONFIG_VERSION`.
+- Every gameplay object has a unique stable string id. Recorded solutions, hints and saves refer to ids, never indices.
+
+### Definition versus instance
+
+`LevelInstance.create(definition)` returns a new object holding its own deep copy of the geometry and mutable records (material position and status, pin pulled flag). Mutating an instance, even its private geometry copy, cannot change the definition or a later instance. Restart builds a new instance from the same definition, which is why the starting positions are explicit in the data rather than randomised. `AppRoot` loads the definition once per Play and reuses it for restarts; each `LevelScreen` builds its own instance and `BoardView`.
+
+### Event contract (built, rules not yet)
+
+`LevelEvent` has nine types: action requested, accepted, rejected; material collected, lost, destroyed; level won, lost, jammed. `EventLog` is append-only and bounded, refuses a second terminal event or anything after one, and refuses a second resolution of the same material. Rule code (Prompt 05) and the simulation runner (Prompt 03 and 04) will emit these; live play, replay and tests will all read the same stream.
 
 ## Versioning
 
@@ -102,4 +119,4 @@ Headless scene tests run with the dummy display and audio drivers, so they prove
 
 ## Folder conventions
 
-`src/<layer>/` for code, `scenes/<area>/` for scenes, `tests/<suite>/` for tests, `scripts/` for Windows tooling, `docs/` for documents. Authored level data will live under a separate `levels/` directory (not `res://` scripts) when introduced.
+`src/<layer>/` for code, `scenes/<area>/` for scenes, `tests/<suite>/` for tests, `scripts/` for Windows tooling, `docs/` for documents. Level data lives in `levels/` (built-in, JSON only) and, for imported or generated content, `user://levels/`. The export preset must include `*.json` for `levels/` (Prompt 17).

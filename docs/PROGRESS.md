@@ -4,14 +4,13 @@ Single source of truth for what has actually been done and verified. Record real
 
 ## Current stage
 
-**Phase 0, Prompt 01: project scaffold.**
+**Prompt 02 (versioned level data and validation): implemented, automated checks PASS, manual check PASS (developer, 2026-11-17). The reusable Verification Prompt has not been run yet; that is the only remaining gate.** Details in "Prompt 02" below. Do not start Prompt 03 until the Verification Prompt has been run for Prompt 02.
+
+**Prompt 01 (project scaffold): signed off, PASS.**
 
 - Automated verification: **PASS** (3 passes done, results below).
 - Manual Windows checks: steps 1 to 6 recorded as **pass** by the developer on 2026-11-17; step 7 (touch) not applicable, no touch screen.
 - Follow-up: the developer reported the Play focus ring in step 1 was "not very noticeable". Fixed in pass 3 (project theme, tests, screenshots). The developer re-checked on 2026-11-17 and confirmed the Play button is now "very noticeable". Closed.
-- Overall verdict: **PASS.** Prompt 01 is signed off. Next: Prompt 02.
-
-Next stage after sign-off: Prompt 02 (versioned level data and validation). Not started.
 
 ## Acceptance criteria for this stage (from Prompt 01)
 
@@ -131,6 +130,95 @@ Run `godot --path .` from the repo root or press F5 in the Godot 4.6.2 editor. W
 
 Record pass or fail for each here, then mark the stage PASS.
 
+## Prompt 02: versioned level data and validation (2026-11-17)
+
+Status: **implemented; automated checks PASS; manual check PASS (developer, 2026-11-17); Verification Prompt PENDING.**
+
+### Acceptance criteria (from Prompt 02)
+
+| Criterion | Evidence | Status |
+|---|---|---|
+| Versioned data-driven `LevelDefinition` with stable ids, design size, wall polylines or polygons, pins with pull direction, explicit spawns, goals, hazards, allowed mechanics, objective rules and thresholds, sim config version, authoring metadata, optional known solutions | `src/data/level_definition.gd`, `docs/LEVEL_FORMAT.md`; schema covered by `test_level_codec.gd` | Done |
+| Definitions separate from runtime instances | `LevelInstance` (sim layer) owns an independent deep copy plus mutable state | PASS (tests below) |
+| Validation of finite numbers, bounded sizes and counts, unique ids, references, wall geometry, supported mechanics, spawn clearances, before instantiating | `LevelValidator`; `LevelInstance.create` re-validates and refuses invalid data; about 80 malformed-data cases | PASS |
+| Safe loading; no arbitrary scripts or resources from JSON; imported data outside the executable tree | `LevelLoader`: JSON class only, strict codec, path allowlist, size cap; user data in `user://levels/` | PASS |
+| One original three-pin level built from data | `levels/workshop.three_pins.json` | Done (layout only; physics unverified) |
+| Event types for action requested/accepted, material collected/lost/destroyed, terminal results | `LevelEvent`, `EventLog`, `TerminalResult` | PASS |
+| Validation catches malformed definitions | `test_level_validation.gd` | PASS |
+| Data round-trips | `test_level_codec.gd`, `test_level_loader.gd` (real file) | PASS |
+| Restart instantiates a fresh level with identical initial geometry | `test_level_instance.gd`, `test_level_screen.gd` (real clicks) | PASS |
+| Future generators output the same format | `meta.source = "generator"` is part of the schema; generators must produce `LevelDefinition` and pass `LevelValidator` | Format ready |
+
+### Built
+
+- `src/data/`: `LevelSchema` (limits and vocabularies), `LevelDefinition`, `LevelCodec` (strict parse and canonical save), `LevelValidator`, `LevelGeometry`, `LevelLoader` (safe file access and atomic save), `ValidationReport`.
+- `src/rules/`: `LevelEvent` (9 event types), `EventLog` (one terminal result, one resolution per material, bounded), `TerminalResult`.
+- `src/sim/`: `LevelInstance`, `LevelLibrary` (load by id).
+- `src/presentation/`: `BoardView` (placeholder drawing, distinct shapes per material), `LevelScreen` and `AppRoot` now load the level from data and build a fresh instance on every start and restart.
+- `levels/workshop.three_pins.json`, saved in canonical form.
+- Tests: 5 new domain files and 1 new scene file (see counts below).
+- Docs: `docs/LEVEL_FORMAT.md` (new), ARCHITECTURE, README, CLAUDE.md updated.
+
+### Commands run and actual results (Windows 11, PowerShell 5.1, Godot 4.6.2)
+
+| Command | Result |
+|---|---|
+| `scripts\test-all.ps1 -Clean` (final) | exit 0: import PASS; parse 41 files, 0 failures; harness 6 of 6 detected; domain 69 passed; scene 23 passed |
+| `scripts\test-scenes.ps1 -Windowed` (real renderer, synthetic input) | exit 0, 23 passed |
+| Screenshot of the level screen (windowed, real renderer) | board drawn from data: 5 tokens on pin A, 2 scrap on pin C, ramp, gate pin B, collector and disposal zones; inspected by eye |
+| Compiler warnings | none from project code. The only `WARNING` line in test output is the engine's `Exponent too high`, printed on purpose by the `1e999` test |
+
+Test count change: domain 9 to 69 (+60), scene 15 to 23 (+8). One existing scene test was adjusted, not weakened: the restart test now expects the board view as the one child of the board root.
+
+### Defects found while building (all fixed)
+
+1. **Freed-object access in new scene tests.** Tests read properties of a screen after restart had freed it. The runner counted them as passing; only the wrapper's engine-output scan caught them (this is the failure mode the harness was built for). Fixed by capturing values before the transition.
+2. **Path check relied on accident.** `LevelLoader.check_path` computed the relative file name from a root chosen by a second condition, so a path such as `res://a_long_file_name.json` was only rejected incidentally. Mutation testing exposed that no test would notice if the root check were removed. Fixed by making root detection explicit and adding six wrong-place paths to the test.
+3. **Half-open bounds check.** `Rect2.has_point` excludes the right and bottom edges, which would have rejected a wall ending exactly on the design edge. Replaced with an inclusive check.
+4. **Shadowed parameter names** in `LevelEvent` factories (compiler warnings). Renamed.
+
+### Mutation evidence (temporary edits to product code, each reverted; files verified identical afterwards)
+
+| Mutation | Result |
+|---|---|
+| Spawn overlap check disabled | domain exit 1, 4 tests fail |
+| `LevelInstance` aliases the source definition instead of copying | exit 1, 1 test fails (source or later restart would be corrupted) |
+| Loader root-folder check disabled (original code) | **survived**: led to defect 2 |
+| Loader root-folder check disabled (fixed code, variant) | exit 1, path test fails |
+| Event log allows a material to resolve twice | exit 1, 1 test fails |
+| Codec ignores unknown keys | exit 1, 3 tests fail |
+
+### Design decisions worth knowing
+
+- Built-in levels ship as JSON in `res://levels/` and are read as text, never via `load()`. **The export preset must include `*.json` (non-resource files filter) or the level will be missing from builds.** Prompt 17 task.
+- Imported, authored or generated levels live in `user://levels/`, outside the executable resource tree. Files are named `<level_id>.json`, and the id inside must match the name.
+- Parsing is strict: unknown keys, wrong types and missing keys are errors. Structural errors stop validation (semantic checks only run on structurally sound data).
+- Saved coordinates are quantised to 0.0001 so files are byte-stable.
+- Material radii, `SPAWN_GAP`, `MAX_SPAWNS` and the other numbers in `LevelSchema` are **provisional** until the physics tuning stage; changing them then is a schema or sim-config version event.
+- Known solution sequences are optional. The three-pin level records none, because nothing can honestly claim a solution before real physics replay exists.
+- `LevelEvent` and `EventLog` define the contract only. No rules emit events yet.
+
+### Limitations and known gaps
+
+- No physics bodies, pin interaction or win/lose rules exist yet. The three-pin level's layout is plausible by eye but its behaviour and solvability are **unverified**.
+- `LevelInstance` holds records only. Prompt 03 attaches the real 2D physics world.
+- `ValidationReport` stops at 50 issues. The validator does not yet check pin sweep paths against walls or tiny passages (editor stage, Prompt 08).
+- `LevelLoader.save_file` writes a temp file then renames; backup and recovery are Prompt 08.
+- Domain tests that touch files write and delete `user://levels/_test_*.json` and `test.*.json` in your Godot user data folder; they clean up after themselves.
+- Not applicable yet: collision layers and masks, fixed-tick behaviour, deferred physics changes, one-shot event emission by rules, terminal-state handling in play, timers, pause, hint and replay regressions, generator checks. Nothing here claims physics ran.
+
+### Manual check (PASS, recorded by the developer 2026-11-17: "manual checks all check out", all five steps)
+
+Run `C:\Tools\Godot\godot.exe --path .`
+
+1. Click **Play**. Expected: a cream board with brown walls, a sloped ramp, three gold-brown pins labelled A, B and C with round handles, five gold circles resting on pin A, two dark squares on pin C, a green COLLECTOR box bottom right and a grey DISPOSAL box bottom left. The title reads "Three Pins Test Chamber".
+2. Click **Restart** several times. Expected: the board looks identical every time.
+3. Click **Back**, then **Play** again. Expected: same board.
+4. Resize the window (wide, tall, small). Expected: the whole board stays visible and centred, never covering Back or Restart.
+5. Press Esc on the level. Expected: back to the menu.
+
+Result: all five steps passed. Next: run the Verification Prompt, then tick Prompt 02 in the prompts file.
+
 ## Next stage
 
-Prompt 02: versioned `LevelDefinition` with validation and one original three-pin test level. Prerequisites in place: layering rules, ID conventions, validated-JSON rule, test runner, `SceneTestCase`, fixtures pattern.
+Prompt 03: walls, tokens and reliable 2D physics, built on `LevelInstance` and the three-pin level. Prerequisites in place: validated data, explicit spawn positions, stable ids, event contract, `SceneTestCase`, fixtures pattern. Wait for the Prompt 02 verification and sign-off first.

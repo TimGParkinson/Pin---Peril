@@ -24,8 +24,10 @@ func test_restart_replaces_level_with_fresh_instance() -> void:
 	press(app.current_node, "PlayButton")
 	var first: LevelScreen = app.current_node as LevelScreen
 	var first_id: int = first.get_instance_id()
+	var baseline: int = first.board_root.get_child_count()
+	assert_eq(baseline, 1, "the board view is the only child of the board root")
 	first.board_root.add_child(Node2D.new())
-	assert_eq(first.board_root.get_child_count(), 1)
+	assert_eq(first.board_root.get_child_count(), baseline + 1)
 
 	press(first, "RestartButton")
 	await settle_frames()
@@ -34,7 +36,7 @@ func test_restart_replaces_level_with_fresh_instance() -> void:
 	assert_eq(app.current_screen, AppRoot.Screen.LEVEL)
 	assert_ne(second.get_instance_id(), first_id, "restart creates a new instance")
 	assert_false(is_instance_valid(instance_from_id(first_id)), "old level is freed")
-	assert_eq(second.board_root.get_child_count(), 0, "restarted level has no leftover state")
+	assert_eq(second.board_root.get_child_count(), baseline, "restarted level has no leftover state")
 	assert_eq(app.get_child_count(), 1)
 
 

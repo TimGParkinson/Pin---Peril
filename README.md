@@ -63,12 +63,13 @@ Run the game: open the folder in the Godot 4.6.2 editor and press F5, or `godot 
 ```
 project.godot          engine config (renderer, physics tick, display)
 scenes/                .tscn scenes (main, menu, level)
+levels/                built-in level data (JSON, see docs/LEVEL_FORMAT.md)
 themes/                project-wide UI theme (keyboard focus ring)
 src/
-  data/                level definitions and validation (planned)
-  rules/               puzzle rules and events (planned)
-  sim/                 fixed-tick physics and shared simulation runner
-  presentation/        screens, UI, effects
+  data/                level schema, definition, codec, validator, safe loader
+  rules/               events and terminal results (rules logic planned)
+  sim/                 SimConfig, level instances, level library (physics and shared runner planned)
+  presentation/        screens, UI, board view, effects
   progression/         saves, settings, campaign (planned)
 tests/
   runner/              test runner, TestCase base, parse check
@@ -83,6 +84,7 @@ docs/                  design, architecture, progress, assets
 
 - [docs/DESIGN.md](docs/DESIGN.md): mechanics, phased scope, exclusions
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): layers, shared simulation runner, versioning, testing
+- [docs/LEVEL_FORMAT.md](docs/LEVEL_FORMAT.md): level data format, limits, validation codes
 - [docs/PROGRESS.md](docs/PROGRESS.md): stage log with real command results
 - [docs/ASSETS.md](docs/ASSETS.md): asset policy and provenance
 - [CLAUDE.md](CLAUDE.md): conventions for AI-assisted work

@@ -2,7 +2,7 @@
 
 Working name: **Pin Puzzle Project**. Original standalone pull-the-pin physics puzzle game. Godot 4, typed GDScript, Windows/Steam first, offline single-player, landscape, scalable touch-friendly UI.
 
-Read before working: `docs/DESIGN.md`, `docs/ARCHITECTURE.md`, `docs/PROGRESS.md`. The staged prompt pack is in `Pin_Puzzle_Game_Claude_Code_Prompts.md` (user-owned, do not edit).
+Read before working: `docs/DESIGN.md`, `docs/ARCHITECTURE.md`, `docs/LEVEL_FORMAT.md`, `docs/PROGRESS.md`. The staged prompt pack is in `Pin_Puzzle_Game_Claude_Code_Prompts.md` (user-owned, do not edit).
 
 ## Pinned toolchain
 
@@ -30,7 +30,7 @@ Godot is found via `GODOT_BIN` or `PATH` and its version is verified. Always run
 
 Five layers, dependencies point downward only: presentation -> progression, sim -> rules -> data. See `docs/ARCHITECTURE.md`.
 
-- **data**: level definitions and validation. No Node access.
+- **data**: level definitions, strict codec, validator, safe loader (`docs/LEVEL_FORMAT.md`). No Node access. Every level, including generated ones, must pass `LevelLoader`/`LevelValidator`; never load level data with `load()`, `str_to_var` or similar.
 - **rules**: puzzle rules, events, state machine. Pure logic, no Node access.
 - **sim**: fixed-tick physics world and the shared `SimulationRunner` (live play and replay use the same code). No UI.
 - **presentation**: scenes, UI, effects. Reads sim state and events, never decides outcomes.
@@ -44,6 +44,7 @@ Five layers, dependencies point downward only: presentation -> progression, sim 
 - Screens emit request signals; only `AppRoot` swaps screens. No autoload singletons for gameplay state. Use `%UniqueName` nodes instead of long `get_node` paths.
 - Gameplay changes happen in fixed physics ticks only. Never move `RigidBody2D` by setting transforms to fake physics. Change collision with deferred calls. Visual effects must not influence simulation state or share its RNG.
 - Every gameplay object has a stable string ID. Never use list positions as persistent identity.
+- Definitions are data, instances are runtime. Never mutate a `LevelDefinition` during play; build a fresh `LevelInstance` (restart does exactly that). Numbers in `LevelSchema` marked PROVISIONAL change only through the physics tuning stage, with a version bump.
 - No `eval`, no loading user-authored data as executable resources/scripts. Level/save data is validated JSON.
 - Do not suppress errors, lower thresholds or delete tests to get green. A launched process is not proof of a passing test.
 - Generated text and docs: no em-dashes.
@@ -53,6 +54,9 @@ Five layers, dependencies point downward only: presentation -> progression, sim 
 - Domain tests (`tests/domain`) cover pure logic. Scene tests (`tests/scene`) drive the real scenes. Physics claims need the real physics step, never a mock.
 - Tests extend `TestCase` and must contain at least one assertion. Test files are `test_*.gd` and methods `test_*`.
 - Scene tests extend `SceneTestCase` (`tests/scene/scene_test_case.gd`), which sets an explicit window size (the headless default is 64x64 and distorts layout) and offers `click`, `send_key` and `set_window_size` helpers that use the real input pipeline. Prefer these over `pressed.emit()` for anything about input or layout. Send keyboard input as `InputEventKey`, not `InputEventAction`.
+- Never read a node or screen after something may have freed it (restart and Back free the old screen). Capture ids or values first. The runner counts such a test as passing; only the wrapper's SCRIPT ERROR scan catches it.
+- After writing a safeguard, break it on purpose (mutation check) and confirm a test fails. A safeguard no test notices is not tested.
+- Domain tests that write files use `user://levels/_test_*.json` and clean up in `after_each`.
 - `tests/harness_fixtures/` contains deliberately failing tests used only by `verify-harness.ps1`. Never add it to a suite.
 - Update `docs/PROGRESS.md` with real commands and results after each stage. Mark manual checks as pending, never passed, until a human has done them.
 

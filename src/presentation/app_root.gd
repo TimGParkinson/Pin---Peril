@@ -21,6 +21,8 @@ var current_node: Node:
 		return _current
 
 var _current: Node = null
+var _level_definition: LevelDefinition = null
+var _level_problem: String = ""
 
 
 func _ready() -> void:
@@ -31,7 +33,16 @@ func show_menu() -> void:
 	_switch_to(Screen.MENU)
 
 
+## Loads the default level from data, then shows it. The loaded definition is reused by
+## restart_level; each screen still builds its own fresh LevelInstance from it.
 func show_level() -> void:
+	var result: LevelLoader.LoadResult = LevelLibrary.load_builtin(LevelLibrary.DEFAULT_LEVEL_ID)
+	if result.is_ok():
+		_level_definition = result.definition
+		_level_problem = ""
+	else:
+		_level_definition = null
+		_level_problem = "Could not load level:\n%s" % result.report.summary()
 	_switch_to(Screen.LEVEL)
 
 
@@ -60,6 +71,8 @@ func _switch_to(screen: Screen) -> void:
 			_current = menu
 		Screen.LEVEL:
 			var level: LevelScreen = LEVEL_SCENE.instantiate() as LevelScreen
+			level.level_definition = _level_definition
+			level.load_problem = _level_problem
 			level.back_requested.connect(show_menu)
 			level.restart_requested.connect(restart_level)
 			_current = level

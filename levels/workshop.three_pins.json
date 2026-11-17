@@ -1,0 +1,244 @@
+{
+	"allowed_mechanics": [
+		"pins",
+		"scrap",
+		"disposal_zones"
+	],
+	"design_size": [
+		1600.0,
+		900.0
+	],
+	"goals": [
+		{
+			"accepts": [
+				"token"
+			],
+			"id": "goal.collector",
+			"kind": "collector",
+			"protected": true,
+			"rect": [
+				1240.0,
+				770.0,
+				160.0,
+				78.0
+			]
+		},
+		{
+			"accepts": [
+				"scrap"
+			],
+			"id": "goal.disposal",
+			"kind": "disposal",
+			"protected": false,
+			"rect": [
+				180.0,
+				790.0,
+				300.0,
+				58.0
+			]
+		}
+	],
+	"hazards": [],
+	"known_sequences": [],
+	"level_id": "workshop.three_pins",
+	"meta": {
+		"author": "Pin Puzzle Project",
+		"created": "2026-11-17",
+		"notes": "Format fixture for Prompt 02. Layout is plausible but physics behaviour and solvability are NOT verified yet. No known solutions are recorded until real physics replay exists.",
+		"source": "handcrafted"
+	},
+	"objective": {
+		"allowed_token_losses": 0,
+		"collector_ids": [
+			"goal.collector"
+		],
+		"fail_conditions": [
+			"scrap_in_protected"
+		],
+		"required_tokens": 5
+	},
+	"pins": [
+		{
+			"handle": [
+				60.0,
+				300.0
+			],
+			"id": "pin.a",
+			"pull_direction": [
+				-1.0,
+				0.0
+			],
+			"pull_distance": 688.0,
+			"thickness": 16.0,
+			"tip": [
+				748.0,
+				300.0
+			]
+		},
+		{
+			"handle": [
+				1180.0,
+				520.0
+			],
+			"id": "pin.b",
+			"pull_direction": [
+				0.0,
+				-1.0
+			],
+			"pull_distance": 330.0,
+			"thickness": 16.0,
+			"tip": [
+				1180.0,
+				850.0
+			]
+		},
+		{
+			"handle": [
+				60.0,
+				700.0
+			],
+			"id": "pin.c",
+			"pull_direction": [
+				-1.0,
+				0.0
+			],
+			"pull_distance": 380.0,
+			"thickness": 16.0,
+			"tip": [
+				440.0,
+				700.0
+			]
+		}
+	],
+	"schema_version": 1,
+	"sim_config_version": 1,
+	"spawns": [
+		{
+			"id": "token.1",
+			"material": "token",
+			"position": [
+				300.0,
+				275.0
+			]
+		},
+		{
+			"id": "token.2",
+			"material": "token",
+			"position": [
+				340.0,
+				275.0
+			]
+		},
+		{
+			"id": "token.3",
+			"material": "token",
+			"position": [
+				380.0,
+				275.0
+			]
+		},
+		{
+			"id": "token.4",
+			"material": "token",
+			"position": [
+				420.0,
+				275.0
+			]
+		},
+		{
+			"id": "token.5",
+			"material": "token",
+			"position": [
+				360.0,
+				247.0
+			]
+		},
+		{
+			"id": "scrap.1",
+			"material": "scrap",
+			"position": [
+				240.0,
+				675.0
+			]
+		},
+		{
+			"id": "scrap.2",
+			"material": "scrap",
+			"position": [
+				300.0,
+				675.0
+			]
+		}
+	],
+	"title": "Three Pins Test Chamber",
+	"walls": [
+		{
+			"id": "wall.outer",
+			"kind": "polyline",
+			"points": [
+				[
+					160.0,
+					60.0
+				],
+				[
+					160.0,
+					860.0
+				],
+				[
+					1440.0,
+					860.0
+				],
+				[
+					1440.0,
+					60.0
+				]
+			],
+			"thickness": 24.0
+		},
+		{
+			"id": "wall.chamber_right",
+			"kind": "polyline",
+			"points": [
+				[
+					760.0,
+					60.0
+				],
+				[
+					760.0,
+					400.0
+				]
+			],
+			"thickness": 24.0
+		},
+		{
+			"id": "wall.ramp",
+			"kind": "polyline",
+			"points": [
+				[
+					160.0,
+					520.0
+				],
+				[
+					1000.0,
+					620.0
+				]
+			],
+			"thickness": 24.0
+		},
+		{
+			"id": "wall.bay_divider",
+			"kind": "polyline",
+			"points": [
+				[
+					1180.0,
+					640.0
+				],
+				[
+					1180.0,
+					780.0
+				]
+			],
+			"thickness": 24.0
+		}
+	]
+}
