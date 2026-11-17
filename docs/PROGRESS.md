@@ -4,7 +4,7 @@ Single source of truth for what has actually been done and verified. Record real
 
 ## Current stage
 
-**Prompt 02 (versioned level data and validation): implemented, automated checks PASS, manual check PASS (developer, 2026-11-17). The reusable Verification Prompt has not been run yet; that is the only remaining gate.** Details in "Prompt 02" below. Do not start Prompt 03 until the Verification Prompt has been run for Prompt 02.
+**Prompt 02 (versioned level data and validation): verification pass done 2026-11-17. Automated checks PASS (domain 84, scene 28, all harness and parse checks). Original manual check PASS (developer). The verification pass fixed 6 defects, 3 of them in code the manual check had covered, so a 30-second manual re-look is PENDING.** Verdict: **PASS pending that re-look.** Details in "Prompt 02" and "Verification pass" below. Do not start Prompt 03 until the re-look is done.
 
 **Prompt 01 (project scaffold): signed off, PASS.**
 
@@ -132,7 +132,7 @@ Record pass or fail for each here, then mark the stage PASS.
 
 ## Prompt 02: versioned level data and validation (2026-11-17)
 
-Status: **implemented; automated checks PASS; manual check PASS (developer, 2026-11-17); Verification Prompt PENDING.**
+Status: **implemented; verification pass done (see below); automated checks PASS; manual re-look PENDING.**
 
 ### Acceptance criteria (from Prompt 02)
 
@@ -207,6 +207,73 @@ Test count change: domain 9 to 69 (+60), scene 15 to 23 (+8). One existing scene
 - Domain tests that touch files write and delete `user://levels/_test_*.json` and `test.*.json` in your Godot user data folder; they clean up after themselves.
 - Not applicable yet: collision layers and masks, fixed-tick behaviour, deferred physics changes, one-shot event emission by rules, terminal-state handling in play, timers, pause, hint and replay regressions, generator checks. Nothing here claims physics ran.
 
+### Verification pass (2026-11-17)
+
+Git: the Prompt 02 work was already committed (`a1e77f7`); at the start only the prompts file (checkbox ticks) was modified. Everything below is uncommitted on top of that.
+
+Commands run and actual results (Windows 11, PowerShell 5.1, Godot 4.6.2, GTX 1060 OpenGL Compatibility)
+
+| Command | Result |
+|---|---|
+| `scripts\test-all.ps1 -Clean` before any change | exit 0 (domain 69, scene 23) |
+| `scripts\test-all.ps1 -Clean` after fixes (final) | exit 0: import PASS; parse 42 files, 0 failures; harness 6 of 6 detected; domain 84 passed; scene 28 passed |
+| `scripts\test-scenes.ps1 -Windowed` (real renderer, synthetic input) | exit 0, 28 passed |
+| Mutation runs (10 safeguards, plus the leak test) | every mutation caught, files restored identical (table below) |
+| Screenshots, real renderer | normal level screen unchanged; long-title and error-flood screens now correct |
+| Compiler warnings | none from project code; the only `WARNING` is the deliberate `1e999` engine message |
+
+Probes run that found defects (scratch scripts, not committed)
+
+| Probe | Finding |
+|---|---|
+| Largest legal file by the old limits (64 walls x 256 points, 150 spawns, 199 KB) | **5.5 s** to validate, then again to instantiate |
+| 30000 spawn entries into the codec | all parsed into objects (600 ms) before the count check refused them |
+| UTF-8 BOM before valid JSON | confusing `json.parse` error |
+| Source position 200.123459 into `LevelInstance` | instance position 200.123505: the deep copy rounded silently |
+| 200 character title (valid data) on the level screen | Back at x=-3443, Restart at x=5123, both off screen |
+| 40 validation errors on the level screen | error label 2170 px tall, partly off screen |
+| Rounding on save, 20000 random near-limit placements | **716 (3.7%) valid in memory but invalid after save and reload** |
+| Nested JSON up to 1,000,000 deep, Enter+Esc in one frame | no problem found (engine rejects the nesting; no error from the frame race) |
+| 120 Play/Restart/Back cycles | object count flat at 1556 from cycle 1: no leak |
+
+Defects fixed
+
+1. **Unbounded validation work.** Added `MAX_TOTAL_WALL_POINTS` (1024). Largest legal level now validates in about 0.5 s (was 5.5 s) and instantiates in about 0.6 s. Tests: cap rejects quickly, boundary case (64 walls x 16 points) passes, one more point per wall fails, worst legal file stays under a generous time ceiling.
+2. **Codec built objects before checking list sizes.** Oversized lists are now refused as a whole, before any entry is parsed. Test uses 1000 malformed entries per list and requires only `count.exceeded`.
+3. **Instance drift from validated data.** `LevelCodec.clone` no longer rounds; saving still does. Tests use positions off the 0.0001 grid.
+4. **Rounding on save could write a file the game then refuses to open.** `to_saved_text` validates the rounded text; a rounding-only failure is reported as `save.rounding`. A seeded 1500-trial test requires that both outcomes occur (the guard is really exercised) and that nothing written ever fails to load. **Correction:** my first probe of this reported zero hazard cases and I described the risk to you as theoretical. That probe was broken (it placed a spawn inside a wall, so every trial failed validation and was skipped). The redone probe found the real 3.7% rate above.
+5. **Data-supplied text could break the HUD.** Title label now clips with an ellipsis; error text is capped at 6 issues of at most 110 characters and wrapped. Tests at 5 window sizes check the controls and message stay inside the window and board area.
+6. **Smaller items.** UTF-8 BOM accepted (Windows editors); `.json.tmp` files are no longer readable as levels (code allowed it, docs said otherwise); `.gitattributes` now forces LF for JSON and the canonical-form test ignores line-ending conversion, because a Windows checkout would otherwise have broken it; `_fit_board` guarded against running after the screen was removed (no error was observed, defensive only).
+
+New test coverage: architecture layers (`test_architecture_layers.gd`: no upward references, no Node use in data and rules, scanner self-check), leak check (60 cycles, node and orphan counts exact, object count drift at most 2), Play-then-Back in one frame, BOM and CRLF, wall caps and timing, exact clone, rounding property, long title, error flood, summary capping.
+
+One test was changed after it failed for the wrong reason: the leak test first used exact object-count equality and failed in the windowed run with a count that went DOWN by one (engine jitter, not a leak). It now bounds drift. A deliberate leak (one `LevelInstance` kept per cycle) produced a drift of 3600 and failed it, so it still detects leaks.
+
+Mutation evidence (temporary edits to product code, each reverted and verified identical)
+
+| Mutation | Result |
+|---|---|
+| Total wall point cap removed | 2 tests fail |
+| Codec parses oversized lists | 1 test fails |
+| Clone rounds again | 2 tests fail |
+| Save skips validating rounded text | 2 tests fail |
+| BOM not stripped | 1 test fails |
+| `.tmp` files readable | 1 test fails |
+| Data layer references `Node` | architecture test fails |
+| Sim layer references `UiMetrics` | architecture test fails |
+| Title label unclipped | long-title test fails |
+| Error text not capped | error-flood test fails |
+| `LevelScreen` leaks one instance per cycle | leak test fails (drift 3600) |
+
+Reviewed and found fine: layer dependencies (now enforced by test), spawn and clearance geometry at limits, polygon walls, JSON nesting bombs, hostile keys and resource-path strings, path allowlist, event log one-shot rules, definition/instance separation, restart cleanup and stale callbacks at screen level, hit areas and scaling at 6 window sizes.
+
+Remaining limitations (not defects of this stage)
+
+- Validation does not check that a level is playable or solvable (zero pins is legal data). Playability belongs to the editor (Prompt 08) and replay (Prompt 16).
+- Symbolic links or junctions inside `user://levels/` are not specially handled.
+- Everything physics-related is not applicable yet and nothing here claims physics ran.
+- `Pin_Puzzle_Game_Claude_Code_Prompts.md` was added to `.gitignore` at the developer's request, but it is already tracked, so it stays tracked until `git rm --cached Pin_Puzzle_Game_Claude_Code_Prompts.md` is run.
+
 ### Manual check (PASS, recorded by the developer 2026-11-17: "manual checks all check out", all five steps)
 
 Run `C:\Tools\Godot\godot.exe --path .`
@@ -217,7 +284,9 @@ Run `C:\Tools\Godot\godot.exe --path .`
 4. Resize the window (wide, tall, small). Expected: the whole board stays visible and centred, never covering Back or Restart.
 5. Press Esc on the level. Expected: back to the menu.
 
-Result: all five steps passed. Next: run the Verification Prompt, then tick Prompt 02 in the prompts file.
+Result: all five steps passed (before the verification pass).
+
+**Re-look (PENDING, 30 seconds)** because the verification pass touched the level screen: run `C:\Tools\Godot\godot.exe --path .`, click Play and confirm the board looks the same as before; click Restart and Back a few times; shrink the window and confirm Back and Restart stay in the top corners with the title between them. Record pass or fail here.
 
 ## Next stage
 

@@ -115,6 +115,8 @@ Three independent versions, recorded with every replay result and validation rec
 | scene | `tests/scene` | Real scenes driven by real mouse/key events and measured layout at several window sizes; `-Windowed` reruns on the real renderer | import |
 | harness | `tests/harness_fixtures` | Deliberate failures, used only by `verify-harness.ps1` | import |
 
+The layer rules above are enforced by `tests/domain/test_architecture_layers.gd`: no source file may reference a class from a higher layer, and data and rules code may not mention Nodes or the scene tree. Adding a new folder under `src/` fails that test until the folder is classified in it.
+
 Headless scene tests run with the dummy display and audio drivers, so they prove structure and flow, **not** rendering, touch input or Windows display scaling. Those are manual checks listed in PROGRESS. Physics replay tests arrive with the simulation stages.
 
 ## Folder conventions

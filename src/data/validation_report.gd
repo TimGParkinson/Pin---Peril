@@ -16,6 +16,9 @@ class Issue:
 		return "%s [%s] %s" % [path, code, message]
 
 
+## Longest line summary(max_issues) will produce.
+const MAX_LINE_LENGTH: int = 110
+
 var issues: Array[Issue] = []
 
 ## True if more issues were found than are stored.
@@ -68,11 +71,18 @@ func merge(other: ValidationReport) -> void:
 		truncated = true
 
 
-## Multi-line summary for logs and on-screen error text.
-func summary() -> String:
+## Multi-line summary for logs and on-screen error text. With `max_issues` above zero only
+## that many issues are listed, each line shortened, so the text always fits on screen.
+func summary(max_issues: int = 0) -> String:
+	var shown: int = issues.size() if max_issues <= 0 else mini(issues.size(), max_issues)
 	var lines: PackedStringArray = PackedStringArray()
-	for issue: Issue in issues:
-		lines.append(str(issue))
+	for index: int in shown:
+		var line: String = str(issues[index])
+		if max_issues > 0 and line.length() > MAX_LINE_LENGTH:
+			line = line.left(MAX_LINE_LENGTH - 3) + "..."
+		lines.append(line)
+	if shown < issues.size():
+		lines.append("(%d more issues not shown)" % (issues.size() - shown))
 	if truncated:
 		lines.append("(more issues not shown)")
 	return "\n".join(lines)

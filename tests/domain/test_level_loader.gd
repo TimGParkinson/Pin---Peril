@@ -158,3 +158,73 @@ func _cleanup() -> void:
 			var path: String = LevelLoader.USER_ROOT + file_name + suffix
 			if FileAccess.file_exists(path):
 				DirAccess.remove_absolute(path)
+
+
+func test_temporary_save_files_are_not_readable_as_levels() -> void:
+	assert_ne(LevelLoader.check_path("user://levels/x.json.tmp"), "")
+	assert_ne(LevelLoader.check_path("res://levels/x.json.tmp"), "")
+	var result: LevelLoader.LoadResult = LevelLoader.load_file("user://levels/x.json.tmp", SimConfig.CONFIG_VERSION)
+	assert_true(result.report.has_code("path.rejected"))
+
+
+func test_a_file_saved_with_a_byte_order_mark_still_loads() -> void:
+	_write("_test_roundtrip.json", "\uFEFF" + JSON.stringify(LevelFixtures.minimal()))
+	var result: LevelLoader.LoadResult = LevelLoader.load_file("user://levels/_test_roundtrip.json", SimConfig.CONFIG_VERSION)
+	assert_true(result.is_ok(), result.report.summary(3))
+
+
+func test_what_save_would_write_always_loads_back() -> void:
+	assert_eq(LevelLoader.to_saved_text(LevelFixtures.minimal_definition(), SimConfig.CONFIG_VERSION), LevelCodec.to_json_text(LevelFixtures.minimal_definition()))
+	# Two bodies placed within 0.0004 of the legal gap at random angles. Rounding on save can
+	# push some of them just inside the limit. Measured: about 4 percent of these placements are
+	# valid in memory but invalid once rounded. Save must never write such a file.
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 777
+	var written_ok: int = 0
+	var refused_after_rounding: int = 0
+	for trial: int in 1500:
+		var definition: LevelDefinition = LevelFixtures.minimal_definition()
+		var anchor: Vector2 = Vector2(rng.randf_range(300.0, 700.0), rng.randf_range(400.0, 500.0))
+		var angle: float = rng.randf() * TAU
+		definition.spawns[0].position = anchor
+		definition.spawns[1].position = anchor + Vector2.from_angle(angle) * (30.0 + rng.randf_range(0.0, 0.0004))
+		definition.spawns[2].position = Vector2(600.0, 100.0)
+		if not LevelValidator.validate(definition, SimConfig.CONFIG_VERSION).is_ok():
+			continue
+		var report: ValidationReport = ValidationReport.new()
+		var text: String = LevelLoader.to_saved_text(definition, SimConfig.CONFIG_VERSION, report)
+		if text.is_empty():
+			refused_after_rounding += 1
+			assert_true(report.has_code("save.rounding"), "trial %d refused with an explanation: %s" % [trial, report.summary(3)])
+		else:
+			written_ok += 1
+			assert_true(LevelLoader.parse_text(text, SimConfig.CONFIG_VERSION).is_ok(), "trial %d: what would be written must load" % trial)
+	assert_true(written_ok > 100, "most placements save fine (%d)" % written_ok)
+	assert_true(refused_after_rounding > 5, "the rounding hazard really occurs in this sample (%d), so the guard is exercised" % refused_after_rounding)
+	var invalid: LevelDefinition = LevelFixtures.minimal_definition()
+	invalid.pins[0].thickness = 1.0
+	var invalid_report: ValidationReport = ValidationReport.new()
+	assert_eq(LevelLoader.to_saved_text(invalid, SimConfig.CONFIG_VERSION, invalid_report), "", "invalid definitions produce no text")
+	assert_true(invalid_report.has_code("pin.thickness"))
+	assert_false(invalid_report.has_code("save.rounding"))
+
+
+func test_save_file_refuses_a_rounding_hazard_and_explains_why() -> void:
+	# Find one definition that is valid in memory but not after rounding, then try to save it.
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 777
+	var victim: LevelDefinition = null
+	for _trial: int in 1500:
+		var definition: LevelDefinition = LevelFixtures.minimal_definition()
+		var anchor: Vector2 = Vector2(rng.randf_range(300.0, 700.0), rng.randf_range(400.0, 500.0))
+		definition.spawns[0].position = anchor
+		definition.spawns[1].position = anchor + Vector2.from_angle(rng.randf() * TAU) * (30.0 + rng.randf_range(0.0, 0.0004))
+		definition.spawns[2].position = Vector2(600.0, 100.0)
+		if LevelValidator.validate(definition, SimConfig.CONFIG_VERSION).is_ok() and LevelLoader.to_saved_text(definition, SimConfig.CONFIG_VERSION).is_empty():
+			victim = definition
+			break
+	assert_not_null(victim, "a hazard case exists in the sample")
+	var report: ValidationReport = ValidationReport.new()
+	assert_eq(LevelLoader.save_file(victim, "user://levels/_test_roundtrip.json", SimConfig.CONFIG_VERSION, report), ERR_INVALID_DATA)
+	assert_true(report.has_code("save.rounding"), report.summary(3))
+	assert_false(FileAccess.file_exists("user://levels/_test_roundtrip.json"), "nothing was written")

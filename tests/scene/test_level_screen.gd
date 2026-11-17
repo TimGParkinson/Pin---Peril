@@ -1,6 +1,9 @@
 extends SceneTestCase
 ## The level screen builds its board from data, restarts from fresh state, and fits the window.
 
+const LEAK_CYCLES: int = 60
+const MAX_OBJECT_DRIFT: int = 2
+
 const WINDOW_SIZES: Array[Vector2i] = [
 	Vector2i(1280, 720), Vector2i(1920, 1080), Vector2i(2560, 1080), Vector2i(1600, 1200), Vector2i(3840, 2160),
 ]
@@ -131,3 +134,115 @@ func test_an_invalid_definition_shows_the_problems_and_builds_no_board() -> void
 	assert_true((level.get_node("%PlaceholderLabel") as Label).text.contains("pin.thickness"))
 	tree.root.remove_child(level)
 	level.free()
+
+
+func _screen_with(definition: LevelDefinition) -> LevelScreen:
+	var level: LevelScreen = (load("res://scenes/level/level_screen.tscn") as PackedScene).instantiate() as LevelScreen
+	level.level_definition = definition
+	tree.root.add_child(level)
+	await settle_frames()
+	return level
+
+
+func _discard(level: LevelScreen) -> void:
+	tree.root.remove_child(level)
+	level.free()
+
+
+func test_a_very_long_title_cannot_push_the_controls_off_screen() -> void:
+	# A 200 character title is valid data. It used to push Back to x=-3443 and Restart to
+	# x=5123, leaving only Esc to get out.
+	for window_size: Vector2i in WINDOW_SIZES:
+		await set_window_size(window_size)
+		var definition: LevelDefinition = LevelFixtures.minimal_definition()
+		definition.title = "W".repeat(LevelSchema.MAX_TEXT_LENGTH)
+		var level: LevelScreen = await _screen_with(definition)
+		var visible: Rect2 = tree.root.get_visible_rect()
+		var back: Rect2 = find_button(level, "BackButton").get_global_rect()
+		var restart: Rect2 = find_button(level, "RestartButton").get_global_rect()
+		var title: Rect2 = (level.get_node("%TitleLabel") as Control).get_global_rect()
+		var label: String = "at %s" % window_size
+		assert_true(visible.encloses(back), "Back on screen %s (%s)" % [label, back])
+		assert_true(visible.encloses(restart), "Restart on screen %s (%s)" % [label, restart])
+		assert_true(visible.encloses(title), "title on screen %s (%s)" % [label, title])
+		assert_false(back.intersects(title) or restart.intersects(title), "title does not overlap the buttons " + label)
+		assert_eq(back.size, Vector2(240.0, 96.0), "button size unchanged " + label)
+		_discard(level)
+
+
+func test_a_flood_of_validation_errors_stays_readable_and_on_screen() -> void:
+	for window_size: Vector2i in WINDOW_SIZES:
+		await set_window_size(window_size)
+		var definition: LevelDefinition = LevelFixtures.minimal_definition()
+		for index: int in definition.spawns.size():
+			definition.spawns[index].position = Vector2(500.0, 500.0)  # every body on top of every other
+		definition.pins[0].thickness = 1.0
+		definition.pins[1].thickness = 1.0
+		var level: LevelScreen = await _screen_with(definition)
+		assert_null(level.instance)
+		var label: Label = level.get_node("%PlaceholderLabel") as Label
+		var area: Rect2 = (level.get_node("%BoardArea") as Control).get_global_rect()
+		var text: String = label.text
+		var label_text: String = "at %s" % window_size
+		assert_true(text.begins_with("Level data is invalid:"), text)
+		assert_true(text.split("\n").size() <= LevelScreen.MAX_SHOWN_ISSUES + 3, "at most %d issues listed %s" % [LevelScreen.MAX_SHOWN_ISSUES, label_text])
+		assert_true(text.contains("more issues not shown"), "says that more exist " + label_text)
+		assert_true(area.grow(0.5).encloses(label.get_global_rect()), "message inside the board area %s: %s in %s" % [label_text, label.get_global_rect(), area])
+		assert_true(tree.root.get_visible_rect().encloses(label.get_global_rect()), "message inside the window " + label_text)
+		_discard(level)
+
+
+func test_validation_summary_can_be_capped_and_shortened() -> void:
+	var report: ValidationReport = ValidationReport.new()
+	for index: int in 20:
+		report.add("path[%d]" % index, "code.x", "word ".repeat(60))
+	var capped: PackedStringArray = report.summary(4).split("\n")
+	assert_eq(capped.size(), 5, "4 issues plus the 'more' line")
+	assert_true(capped[4].contains("16 more"))
+	for index: int in 4:
+		assert_true(capped[index].length() <= ValidationReport.MAX_LINE_LENGTH, "line %d is shortened" % index)
+		assert_true(capped[index].ends_with("..."))
+	assert_eq(report.summary().split("\n").size(), 20, "uncapped summary is unchanged")
+
+
+func test_play_then_back_in_one_frame_leaves_a_clean_menu() -> void:
+	# Enter (Play) and Esc (Back) land in the same frame, before the new screen's deferred
+	# board fitting has run. Nothing may error and the app must stay usable.
+	queue_key(KEY_ENTER)
+	queue_key(KEY_ESCAPE)
+	await settle_frames()
+	assert_eq(app.current_screen, AppRoot.Screen.MENU)
+	assert_eq(app.get_child_count(), 1)
+	await click(find_button(app.current_node, "PlayButton"))
+	assert_eq(app.current_screen, AppRoot.Screen.LEVEL, "still works afterwards")
+	assert_not_null((app.current_node as LevelScreen).instance)
+
+
+func test_repeated_play_restart_back_does_not_leak_objects() -> void:
+	# Warm up with the same procedure as the measured loop, including drawn frames, so one-time
+	# engine allocations (text and font caches created on first draw) are not counted. A
+	# 120-cycle probe showed the object count flat from the first cycle on.
+	for _i: int in 5:
+		press(app.current_node, "PlayButton")
+		await settle_frames()
+		press(app.current_node, "RestartButton")
+		await settle_frames()
+		press(app.current_node, "BackButton")
+		await settle_frames()
+	var objects_before: int = int(Performance.get_monitor(Performance.OBJECT_COUNT))
+	var nodes_before: int = int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT))
+	var orphans_before: int = int(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT))
+	for _i: int in LEAK_CYCLES:
+		press(app.current_node, "PlayButton")
+		await settle_frames()
+		press(app.current_node, "RestartButton")
+		await settle_frames()
+		press(app.current_node, "BackButton")
+		await settle_frames()
+	assert_eq(int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)), nodes_before, "no leaked nodes")
+	assert_eq(int(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)), orphans_before, "no orphan nodes")
+	# A leak grows with the cycle count (one leaked object per cycle would add 60 or more here).
+	# The real renderer shows +/-1 jitter in the engine's total object count, so allow a drift of
+	# 2 rather than exact equality. This still catches any leak of about one object per 30 cycles.
+	var drift: int = int(Performance.get_monitor(Performance.OBJECT_COUNT)) - objects_before
+	assert_true(absi(drift) <= MAX_OBJECT_DRIFT, "object count drifted by %d over %d restart cycles (instances, definitions, views)" % [drift, LEAK_CYCLES])

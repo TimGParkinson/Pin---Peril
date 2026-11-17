@@ -42,7 +42,7 @@ func show_level() -> void:
 		_level_problem = ""
 	else:
 		_level_definition = null
-		_level_problem = "Could not load level:\n%s" % result.report.summary()
+		_level_problem = "Could not load level:\n%s" % result.report.summary(LevelScreen.MAX_SHOWN_ISSUES)
 	_switch_to(Screen.LEVEL)
 
 

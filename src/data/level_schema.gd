@@ -15,6 +15,9 @@ const DESIGN_MIN: float = 200.0
 const DESIGN_MAX: float = 4096.0
 const MAX_WALLS: int = 64
 const MAX_WALL_POINTS: int = 256
+## Across all walls. Bounds validation work: self-intersection is quadratic per wall and
+## spawn clearance is walls times spawns. 64 walls of 256 points measured about 5.5 seconds.
+const MAX_TOTAL_WALL_POINTS: int = 1024
 const MAX_PINS: int = 16
 const MAX_SPAWNS: int = 150  # PROVISIONAL body-count ceiling until Prompt 03 profiling
 const MAX_GOALS: int = 8

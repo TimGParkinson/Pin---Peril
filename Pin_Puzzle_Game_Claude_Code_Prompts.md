@@ -26,7 +26,7 @@ You can release a handcrafted campaign after Prompt 17 plus release checks and a
 Tick a box only after the prompt has been run AND the Verification Prompt has passed (including manual checks). Each prompt section below has its own checkbox too. Keep both in sync so a prompt is never pasted twice.
 
 - [x] Prompt 01: Establish the project and rules
-- [ ] Prompt 02: Versioned level data and validation
+- [x] Prompt 02: Versioned level data and validation
 - [ ] Prompt 03: Walls, tokens and reliable 2D physics
 - [ ] Prompt 04: Pin interaction and action sequencing
 - [ ] Prompt 05: Goals, losses, win and fail states
@@ -100,7 +100,7 @@ Establish a practical test runner and scripts for headless import/parse, domain 
 
 ## Prompt 02: Versioned level data and validation
 
-- [ ] **Completed** (prompt run, verification prompt run, result recorded in docs/PROGRESS.md)
+- [x] **Completed** (prompt run, verification prompt run, result recorded in docs/PROGRESS.md)
 
 ```text
 Implement a versioned data-driven LevelDefinition with stable level/object IDs, design-space dimensions, wall polylines or validated polygon geometry, pins and pull direction, initial material spawn positions, goals, hazards and allowed mechanics. Include objective rules and thresholds, simulation config version, authoring metadata and optional known solution actions. Record explicit non-overlapping spawn positions rather than randomizing piles at runtime.

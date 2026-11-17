@@ -66,8 +66,11 @@ static func _check_counts(def: LevelDefinition, report: ValidationReport) -> voi
 	_limit(report, "hazards", def.hazards.size(), LevelSchema.MAX_HAZARDS)
 	_limit(report, "known_sequences", def.known_sequences.size(), LevelSchema.MAX_SEQUENCES)
 	_limit(report, "allowed_mechanics", def.allowed_mechanics.size(), LevelSchema.MAX_MECHANICS)
+	var total_points: int = 0
 	for index: int in def.walls.size():
 		_limit(report, "walls[%d].points" % index, def.walls[index].points.size(), LevelSchema.MAX_WALL_POINTS)
+		total_points += def.walls[index].points.size()
+	_limit(report, "walls", total_points, LevelSchema.MAX_TOTAL_WALL_POINTS, "wall points in total")
 
 
 ## Inclusive containment (Rect2.has_point excludes the right and bottom edges).
@@ -75,9 +78,9 @@ static func _contains(rect: Rect2, point: Vector2) -> bool:
 	return point.x >= rect.position.x and point.x <= rect.end.x and point.y >= rect.position.y and point.y <= rect.end.y
 
 
-static func _limit(report: ValidationReport, path: String, count: int, maximum: int) -> void:
+static func _limit(report: ValidationReport, path: String, count: int, maximum: int, noun: String = "entries") -> void:
 	if count > maximum:
-		report.add(path, "count.exceeded", "%d entries, at most %d allowed" % [count, maximum])
+		report.add(path, "count.exceeded", "%d %s, at most %d allowed" % [count, noun, maximum])
 
 
 ## Returns false if any number is NaN or infinite. Later checks assume finite values.

@@ -14,3 +14,6 @@ logs/
 *.tmp
 Thumbs.db
 desktop.ini
+
+# Personal working document: the staged prompt pack and its progress checkboxes
+Pin_Puzzle_Game_Claude_Code_Prompts.md

@@ -167,3 +167,39 @@ func test_encoded_godot_values_in_text_are_not_decoded() -> void:
 	assert_true(result.is_ok(), result.report.summary())
 	assert_eq(typeof(result.definition.title), TYPE_STRING)
 	assert_eq(result.definition.title, "Vector2(1, 2)")
+
+
+func test_oversized_lists_are_refused_before_any_entry_is_parsed() -> void:
+	# 1000 malformed entries. If the codec built objects first it would report a type
+	# mismatch for each one; instead it must refuse the list as a whole.
+	for key: String in ["walls", "pins", "spawns", "goals", "hazards", "known_sequences"]:
+		var data: Dictionary = LevelFixtures.minimal()
+		var junk: Array = []
+		for _i: int in 1000:
+			junk.append("not an object")
+		data[key] = junk
+		var report: ValidationReport = LevelFixtures.check(data).report
+		assert_eq(report.codes(), PackedStringArray(["count.exceeded"]), "%s: %s" % [key, report.summary(3)])
+		assert_eq(report.paths_for("count.exceeded"), PackedStringArray([key]))
+
+
+func test_clone_is_exact_and_saving_is_quantised() -> void:
+	var definition: LevelDefinition = LevelFixtures.minimal_definition()
+	definition.spawns[0].position = Vector2(200.123456, 160.987654)
+	var copy: LevelDefinition = LevelCodec.clone(definition)
+	assert_eq(copy.spawns[0].position, definition.spawns[0].position, "a clone must equal what was validated, bit for bit")
+	var saved: LevelDefinition = LevelLoader.parse_text(LevelCodec.to_json_text(definition), SimConfig.CONFIG_VERSION).definition
+	assert_ne(saved.spawns[0].position, definition.spawns[0].position, "saving rounds to 0.0001")
+	assert_almost_eq(saved.spawns[0].position.x, definition.spawns[0].position.x, 0.0001)
+	assert_ne(LevelCodec.to_dict(definition, false), LevelCodec.to_dict(definition, true))
+
+
+func test_byte_order_mark_and_windows_line_endings_are_accepted() -> void:
+	var text: String = LevelCodec.to_json_text(LevelFixtures.minimal_definition())
+	var with_bom: LevelLoader.LoadResult = LevelLoader.parse_text("\uFEFF" + text, SimConfig.CONFIG_VERSION)
+	assert_true(with_bom.is_ok(), "Notepad-style BOM: " + with_bom.report.summary(3))
+	var crlf: LevelLoader.LoadResult = LevelLoader.parse_text(text.replace("\n", "\r\n"), SimConfig.CONFIG_VERSION)
+	assert_true(crlf.is_ok(), "CRLF line endings: " + crlf.report.summary(3))
+	assert_eq(LevelCodec.to_json_text(crlf.definition), text, "same level either way")
+	var both: LevelLoader.LoadResult = LevelLoader.parse_text("\uFEFF" + text.replace("\n", "\r\n"), SimConfig.CONFIG_VERSION)
+	assert_true(both.is_ok())

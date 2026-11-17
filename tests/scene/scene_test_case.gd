@@ -69,10 +69,16 @@ func click_at(position: Vector2) -> void:
 ## Sends a real key press and release through the viewport pipeline. Key events (not
 ## InputEventAction) are what Godot routes to the focused control.
 func send_key(keycode: Key) -> void:
+	queue_key(keycode)
+	await settle_frames()
+
+
+## Pushes a key press and release without waiting a frame, so several inputs can land in the
+## same frame.
+func queue_key(keycode: Key) -> void:
 	for is_pressed: bool in [true, false]:
 		var event: InputEventKey = InputEventKey.new()
 		event.keycode = keycode
 		event.physical_keycode = keycode
 		event.pressed = is_pressed
 		tree.root.push_input(event)
-	await settle_frames()

@@ -24,7 +24,8 @@ func test_builtin_files_are_in_canonical_form_so_diffs_stay_small() -> void:
 		var path: String = LevelLoader.BUILTIN_ROOT + level_id + LevelLoader.EXTENSION
 		var on_disk: String = FileAccess.get_file_as_string(path)
 		var definition: LevelDefinition = LevelLibrary.load_builtin(level_id).definition
-		assert_eq(LevelCodec.to_json_text(definition), on_disk, "%s is saved canonically; re-save it through LevelCodec" % level_id)
+		# A Windows checkout may convert line endings; they are not part of the content.
+		assert_eq(LevelCodec.to_json_text(definition), on_disk.replace("\r\n", "\n"), "%s is saved canonically; re-save it through LevelCodec" % level_id)
 
 
 func test_three_pin_level_has_the_expected_shape() -> void:

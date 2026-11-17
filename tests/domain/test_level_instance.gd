@@ -98,3 +98,17 @@ func test_lookup_helpers_find_objects_by_stable_id() -> void:
 	assert_null(instance.find_material("scrap.9"))
 	assert_eq(instance.find_pin_state("pin.two").id, "pin.two")
 	assert_null(instance.find_pin_state("pin.nope"))
+
+
+func test_instance_starts_exactly_where_the_validated_definition_says() -> void:
+	# Positions that are not multiples of 0.0001. A quantising copy would shift them silently,
+	# so the instance would no longer match the data that passed validation.
+	var definition: LevelDefinition = LevelFixtures.minimal_definition()
+	definition.spawns[0].position = Vector2(200.123456, 160.987654)
+	definition.spawns[1].position = Vector2(240.000049, 160.0)
+	var instance: LevelInstance = LevelInstance.create(definition)
+	assert_not_null(instance)
+	for index: int in definition.spawns.size():
+		assert_eq(instance.materials[index].position, definition.spawns[index].position, definition.spawns[index].id)
+		assert_eq(instance.definition.spawns[index].position, definition.spawns[index].position)
+	assert_eq(instance.definition.pins[0].tip, definition.pins[0].tip)

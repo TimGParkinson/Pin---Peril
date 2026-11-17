@@ -7,6 +7,9 @@ extends Control
 ## restart starts from the authored positions and nothing is shared between attempts.
 ## Physics, pins and rules arrive in later stages (see docs/ARCHITECTURE.md).
 
+## How many validation problems the screen lists when a level cannot be shown.
+const MAX_SHOWN_ISSUES: int = 6
+
 signal back_requested
 signal restart_requested
 
@@ -50,7 +53,7 @@ func _build_board() -> void:
 	var report: ValidationReport = ValidationReport.new()
 	instance = LevelInstance.create(level_definition, report)
 	if instance == null:
-		_placeholder_label.text = "Level data is invalid:\n%s" % report.summary()
+		_placeholder_label.text = "Level data is invalid:\n%s" % report.summary(MAX_SHOWN_ISSUES)
 		return
 	_title_label.text = level_definition.title
 	_placeholder_label.visible = false
@@ -62,7 +65,9 @@ func _build_board() -> void:
 
 ## Scales and centres the design-space board so it fits inside the board area.
 func _fit_board() -> void:
-	if board_view == null:
+	# Deferred calls can arrive after the screen was already removed (for example Play then
+	# Back within one frame), when global positions are unavailable.
+	if board_view == null or not is_inside_tree():
 		return
 	var area: Rect2 = _board_area.get_global_rect()
 	var design: Vector2 = board_view.design_rect().size

@@ -224,3 +224,57 @@ func _semantic_cases() -> Array[Dictionary]:
 
 func _case(cases: Array[Dictionary], case_name: String, code: String, mutate: Callable) -> void:
 	cases.append({"name": case_name, "code": code, "mutate": mutate})
+
+
+func _wall_heavy_level(wall_count: int, points_each: int) -> Dictionary:
+	var data: Dictionary = LevelFixtures.minimal()
+	data["design_size"] = [4096, 4096]
+	var walls: Array = []
+	for wall_index: int in wall_count:
+		var points: Array = []
+		for point_index: int in points_each:
+			points.append([100 + point_index * 5, 1000 + wall_index * 40])
+		walls.append({"id": "wall.w%d" % wall_index, "kind": "polyline", "thickness": 8, "points": points})
+	data["walls"] = walls
+	var spawns: Array = []
+	for index: int in LevelSchema.MAX_SPAWNS:
+		spawns.append({"id": "token.%d" % index, "material": "token", "position": [200 + (index % 15) * 40, 3600 + (index / 15) * 40]})
+	data["spawns"] = spawns
+	LevelFixtures.objective(data)["required_tokens"] = LevelSchema.MAX_SPAWNS
+	return data
+
+
+func test_total_wall_points_are_capped_across_all_walls() -> void:
+	# Each wall is within the per-wall limit, but together they exceed the total. Before this
+	# cap a 64 by 256 point level (a legal 200 KB file) took about 5.5 seconds to validate.
+	var data: Dictionary = _wall_heavy_level(5, LevelSchema.MAX_WALL_POINTS)
+	var started: int = Time.get_ticks_msec()
+	var report: ValidationReport = LevelFixtures.check(data).report
+	var elapsed: int = Time.get_ticks_msec() - started
+	assert_true(report.has_code("count.exceeded"))
+	assert_eq(report.paths_for("count.exceeded"), PackedStringArray(["walls"]), "reported on the walls collection")
+	assert_false(report.has_code("wall.self_intersect"), "geometry work is skipped once a cap is exceeded")
+	assert_true(elapsed < 1500, "rejected in %d ms" % elapsed)
+
+
+func test_the_largest_legal_level_validates_and_instantiates_in_bounded_time() -> void:
+	var data: Dictionary = _wall_heavy_level(4, LevelSchema.MAX_WALL_POINTS)
+	assert_eq(4 * LevelSchema.MAX_WALL_POINTS, LevelSchema.MAX_TOTAL_WALL_POINTS, "this really is the largest legal wall load")
+	var started: int = Time.get_ticks_msec()
+	var result: LevelLoader.LoadResult = LevelFixtures.check(data)
+	var validate_ms: int = Time.get_ticks_msec() - started
+	assert_true(result.is_ok(), result.report.summary(5))
+	started = Time.get_ticks_msec()
+	var instance: LevelInstance = LevelInstance.create(result.definition)
+	var create_ms: int = Time.get_ticks_msec() - started
+	assert_not_null(instance)
+	# Measured about 0.5 s each. The generous ceiling still catches a return to multi-second stalls.
+	assert_true(validate_ms < 3000, "validate took %d ms" % validate_ms)
+	assert_true(create_ms < 3000, "instantiate took %d ms" % create_ms)
+
+
+func test_many_small_walls_are_bounded_by_the_same_total() -> void:
+	var data: Dictionary = _wall_heavy_level(LevelSchema.MAX_WALLS, LevelSchema.MAX_TOTAL_WALL_POINTS / LevelSchema.MAX_WALLS)
+	assert_true(LevelFixtures.check(data).is_ok(), "64 walls of 16 points is exactly at the limit")
+	var over: Dictionary = _wall_heavy_level(LevelSchema.MAX_WALLS, LevelSchema.MAX_TOTAL_WALL_POINTS / LevelSchema.MAX_WALLS + 1)
+	assert_true(LevelFixtures.check(over).report.has_code("count.exceeded"), "one more point per wall is over")

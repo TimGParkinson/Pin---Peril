@@ -6,6 +6,7 @@
 *.cfg text eol=lf
 *.uid text eol=lf
 *.md text eol=lf
+*.json text eol=lf
 *.ps1 text eol=crlf
 *.png binary
 *.svg text

@@ -60,28 +60,28 @@ static func from_variant(data: Variant) -> ParseResult:
 	def.meta.notes = _string(meta_data, "notes", "meta", report, false)
 
 	var index: int = 0
-	for item: Variant in _array(root, "walls", "$", report):
+	for item: Variant in _bounded_array(root, "walls", LevelSchema.MAX_WALLS, "$", report):
 		def.walls.append(_parse_wall(item, "walls[%d]" % index, report))
 		index += 1
 	index = 0
-	for item: Variant in _array(root, "pins", "$", report):
+	for item: Variant in _bounded_array(root, "pins", LevelSchema.MAX_PINS, "$", report):
 		def.pins.append(_parse_pin(item, "pins[%d]" % index, report))
 		index += 1
 	index = 0
-	for item: Variant in _array(root, "spawns", "$", report):
+	for item: Variant in _bounded_array(root, "spawns", LevelSchema.MAX_SPAWNS, "$", report):
 		def.spawns.append(_parse_spawn(item, "spawns[%d]" % index, report))
 		index += 1
 	index = 0
-	for item: Variant in _array(root, "goals", "$", report):
+	for item: Variant in _bounded_array(root, "goals", LevelSchema.MAX_GOALS, "$", report):
 		def.goals.append(_parse_goal(item, "goals[%d]" % index, report))
 		index += 1
 	index = 0
-	for item: Variant in _array(root, "hazards", "$", report):
+	for item: Variant in _bounded_array(root, "hazards", LevelSchema.MAX_HAZARDS, "$", report):
 		def.hazards.append(_parse_hazard(item, "hazards[%d]" % index, report))
 		index += 1
 	def.objective = _parse_objective(_dict(root, "objective", "$", report), report)
 	index = 0
-	for item: Variant in _array(root, "known_sequences", "$", report):
+	for item: Variant in _bounded_array(root, "known_sequences", LevelSchema.MAX_SEQUENCES, "$", report):
 		def.known_sequences.append(_parse_sequence(item, "known_sequences[%d]" % index, report))
 		index += 1
 
@@ -184,37 +184,38 @@ static func _parse_sequence(item: Variant, path: String, report: ValidationRepor
 # Serialising
 # ---------------------------------------------------------------------------
 
-## Plain Dictionary form of a definition, ready for JSON.stringify.
-static func to_dict(def: LevelDefinition) -> Dictionary:
+## Plain Dictionary form of a definition, ready for JSON.stringify. With `quantise` (the
+## default, used for saving) coordinates are rounded to LevelSchema.COORD_DECIMALS.
+static func to_dict(def: LevelDefinition, quantise: bool = true) -> Dictionary:
 	var walls: Array = []
 	for wall: LevelDefinition.Wall in def.walls:
 		var points: Array = []
 		for point: Vector2 in wall.points:
-			points.append(_vec_out(point))
+			points.append(_vec_out(point, quantise))
 		var wall_data: Dictionary = {"id": wall.id, "kind": wall.kind, "points": points}
 		if wall.kind != LevelSchema.WALL_KIND_POLYGON:
-			wall_data["thickness"] = _num_out(wall.thickness)
+			wall_data["thickness"] = _num_out(wall.thickness, quantise)
 		walls.append(wall_data)
 	var pins: Array = []
 	for pin: LevelDefinition.Pin in def.pins:
 		pins.append({
-			"id": pin.id, "tip": _vec_out(pin.tip), "handle": _vec_out(pin.handle),
-			"thickness": _num_out(pin.thickness), "pull_direction": _vec_out(pin.pull_direction),
-			"pull_distance": _num_out(pin.pull_distance),
+			"id": pin.id, "tip": _vec_out(pin.tip, quantise), "handle": _vec_out(pin.handle, quantise),
+			"thickness": _num_out(pin.thickness, quantise), "pull_direction": _vec_out(pin.pull_direction, quantise),
+			"pull_distance": _num_out(pin.pull_distance, quantise),
 		})
 	var spawns: Array = []
 	for spawn: LevelDefinition.Spawn in def.spawns:
-		spawns.append({"id": spawn.id, "material": spawn.material, "position": _vec_out(spawn.position)})
+		spawns.append({"id": spawn.id, "material": spawn.material, "position": _vec_out(spawn.position, quantise)})
 	var goals: Array = []
 	for goal: LevelDefinition.Goal in def.goals:
 		goals.append({
-			"id": goal.id, "kind": goal.kind, "rect": _rect_out(goal.rect),
+			"id": goal.id, "kind": goal.kind, "rect": _rect_out(goal.rect, quantise),
 			"accepts": _strings_out(goal.accepts), "protected": goal.is_protected,
 		})
 	var hazards: Array = []
 	for hazard: LevelDefinition.Hazard in def.hazards:
 		hazards.append({
-			"id": hazard.id, "kind": hazard.kind, "rect": _rect_out(hazard.rect),
+			"id": hazard.id, "kind": hazard.kind, "rect": _rect_out(hazard.rect, quantise),
 			"affects": _strings_out(hazard.affects),
 		})
 	var sequences: Array = []
@@ -232,7 +233,7 @@ static func to_dict(def: LevelDefinition) -> Dictionary:
 			"author": def.meta.author, "created": def.meta.created,
 			"source": def.meta.source, "notes": def.meta.notes,
 		},
-		"design_size": _vec_out(def.design_size),
+		"design_size": _vec_out(def.design_size, quantise),
 		"allowed_mechanics": _strings_out(def.allowed_mechanics),
 		"walls": walls,
 		"pins": pins,
@@ -255,10 +256,11 @@ static func to_json_text(def: LevelDefinition) -> String:
 	return JSON.stringify(to_dict(def), "\t", true) + "\n"
 
 
-## Independent deep copy (through plain data, so nothing is shared with the original).
-## Returns null if the definition cannot round-trip (it was not structurally valid).
+## Independent, exact deep copy (through plain data, so nothing is shared with the original).
+## Not quantised: a copy must equal what was validated. Returns null if the definition
+## cannot round-trip (it was not structurally valid).
 static func clone(def: LevelDefinition) -> LevelDefinition:
-	return from_variant(to_dict(def)).definition
+	return from_variant(to_dict(def, false)).definition
 
 
 # ---------------------------------------------------------------------------
@@ -294,6 +296,15 @@ static func _array(data: Dictionary, key: String, path: String, report: Validati
 		report.add(_join(path, key), "type.mismatch", "expected an array")
 		return []
 	var items: Array = value as Array
+	return items
+
+
+## Like _array, but refuses (without building anything) a list longer than `maximum`.
+static func _bounded_array(data: Dictionary, key: String, maximum: int, path: String, report: ValidationReport) -> Array:
+	var items: Array = _array(data, key, path, report)
+	if items.size() > maximum:
+		report.add(_join(path, key), "count.exceeded", "%d entries, at most %d allowed" % [items.size(), maximum])
+		return []
 	return items
 
 
@@ -401,16 +412,19 @@ static func _join(path: String, key: String) -> String:
 
 # --- output helpers ---
 
-static func _num_out(value: float) -> float:
-	return snappedf(value, LevelSchema.COORD_DECIMALS)
+static func _num_out(value: float, quantise: bool) -> float:
+	return snappedf(value, LevelSchema.COORD_DECIMALS) if quantise else value
 
 
-static func _vec_out(value: Vector2) -> Array:
-	return [_num_out(value.x), _num_out(value.y)]
+static func _vec_out(value: Vector2, quantise: bool) -> Array:
+	return [_num_out(value.x, quantise), _num_out(value.y, quantise)]
 
 
-static func _rect_out(value: Rect2) -> Array:
-	return [_num_out(value.position.x), _num_out(value.position.y), _num_out(value.size.x), _num_out(value.size.y)]
+static func _rect_out(value: Rect2, quantise: bool) -> Array:
+	return [
+		_num_out(value.position.x, quantise), _num_out(value.position.y, quantise),
+		_num_out(value.size.x, quantise), _num_out(value.size.y, quantise),
+	]
 
 
 static func _strings_out(values: PackedStringArray) -> Array:

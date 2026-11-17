@@ -56,6 +56,10 @@ Five layers, dependencies point downward only: presentation -> progression, sim 
 - Scene tests extend `SceneTestCase` (`tests/scene/scene_test_case.gd`), which sets an explicit window size (the headless default is 64x64 and distorts layout) and offers `click`, `send_key` and `set_window_size` helpers that use the real input pipeline. Prefer these over `pressed.emit()` for anything about input or layout. Send keyboard input as `InputEventKey`, not `InputEventAction`.
 - Never read a node or screen after something may have freed it (restart and Back free the old screen). Capture ids or values first. The runner counts such a test as passing; only the wrapper's SCRIPT ERROR scan catches it.
 - After writing a safeguard, break it on purpose (mutation check) and confirm a test fails. A safeguard no test notices is not tested.
+- A new folder under `src/` must be added to `LAYER_RANK` in `tests/domain/test_architecture_layers.gd` (and to ARCHITECTURE.md). That test enforces the layer rules on the source text.
+- A property or randomised test must assert that the interesting case actually occurred (count it). A probe that never reaches the case proves nothing; one such probe wrongly suggested a real bug was only theoretical.
+- Compare object counts with a small drift allowance, not exact equality (the real renderer shows +/-1 jitter), over many cycles so a real leak stands out.
+- Layout text can be longer than the layout expects. Anything showing data-supplied text (titles, error messages) must clip, wrap or cap it so it can never move the controls.
 - Domain tests that write files use `user://levels/_test_*.json` and clean up in `after_each`.
 - `tests/harness_fixtures/` contains deliberately failing tests used only by `verify-harness.ps1`. Never add it to a suite.
 - Update `docs/PROGRESS.md` with real commands and results after each stage. Mark manual checks as pending, never passed, until a human has done them.
