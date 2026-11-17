@@ -1,0 +1,16 @@
+# Godot
+.godot/
+.import/
+*.translation
+export_credentials.cfg
+
+# Builds and logs
+builds/
+logs/
+
+# Editor and OS
+.vscode/
+.idea/
+*.tmp
+Thumbs.db
+desktop.ini

@@ -1,0 +1,42 @@
+; Engine config file. Pinned engine: Godot 4.6.2-stable (see scripts/engine-version.txt).
+; Do not hand-edit lightly; changes to physics/rendering keys require puzzle revalidation (see docs/ARCHITECTURE.md).
+
+config_version=5
+
+[application]
+
+config/name="Pin Puzzle Project"
+config/description="Original pull-the-pin physics puzzle game. Working name."
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.6", "GL Compatibility")
+
+[debug]
+
+gdscript/warnings/untyped_declaration=2
+gdscript/warnings/unsafe_property_access=1
+gdscript/warnings/unsafe_method_access=1
+gdscript/warnings/unsafe_cast=1
+gdscript/warnings/unsafe_call_argument=1
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=0
+
+[gui]
+
+theme/custom="res://themes/base_theme.tres"
+
+[physics]
+
+common/physics_ticks_per_second=60
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

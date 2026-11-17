@@ -1,0 +1,65 @@
+# CLAUDE.md
+
+Working name: **Pin Puzzle Project**. Original standalone pull-the-pin physics puzzle game. Godot 4, typed GDScript, Windows/Steam first, offline single-player, landscape, scalable touch-friendly UI.
+
+Read before working: `docs/DESIGN.md`, `docs/ARCHITECTURE.md`, `docs/PROGRESS.md`. The staged prompt pack is in `Pin_Puzzle_Game_Claude_Code_Prompts.md` (user-owned, do not edit).
+
+## Pinned toolchain
+
+- Engine: **Godot 4.6.2-stable, standard build (not .NET)**. Exact version lives in `scripts/engine-version.txt`.
+- Export templates must match exactly (4.6.2.stable). Not installed yet; see README.
+- Renderer: `gl_compatibility`. Physics: built-in GodotPhysics2D at a fixed 60 ticks/s.
+- Do not use APIs or docs from other versions. Do not upgrade the engine casually: an engine change invalidates physics validation (see ARCHITECTURE, "Versioning").
+- Test framework: small explicit runner in `tests/runner/` (no addons).
+
+## Commands (Windows, from the repo root)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\test-all.ps1        # everything below, stops at first failure
+powershell -ExecutionPolicy Bypass -File scripts\import.ps1 [-Clean] # headless import
+powershell -ExecutionPolicy Bypass -File scripts\check-parse.ps1     # load every .gd/.tscn/.tres
+powershell -ExecutionPolicy Bypass -File scripts\verify-harness.ps1  # proves the checks can fail
+powershell -ExecutionPolicy Bypass -File scripts\test-domain.ps1
+powershell -ExecutionPolicy Bypass -File scripts\test-scenes.ps1 [-Windowed]  # -Windowed uses the real renderer
+powershell -ExecutionPolicy Bypass -File scripts\check-env.ps1       # prerequisites
+```
+
+Godot is found via `GODOT_BIN` or `PATH` and its version is verified. Always run `import.ps1` after adding or renaming a `class_name` script, otherwise headless runs cannot resolve the class.
+
+## Architecture rules (summary)
+
+Five layers, dependencies point downward only: presentation -> progression, sim -> rules -> data. See `docs/ARCHITECTURE.md`.
+
+- **data**: level definitions and validation. No Node access.
+- **rules**: puzzle rules, events, state machine. Pure logic, no Node access.
+- **sim**: fixed-tick physics world and the shared `SimulationRunner` (live play and replay use the same code). No UI.
+- **presentation**: scenes, UI, effects. Reads sim state and events, never decides outcomes.
+- **progression**: saves, settings, campaign. Consumes terminal results only.
+
+## Coding conventions
+
+- Typed GDScript everywhere. `untyped_declaration` is a project **error**; every var, parameter, return, loop variable and lambda parameter needs a type.
+- Files `snake_case.gd`; `class_name` PascalCase and only for types used across files; constants `UPPER_SNAKE`; private members `_leading_underscore`; signals are past-tense or request-style (`play_requested`, `screen_changed`).
+- Tabs for indentation. Doc comments (`##`) on public classes and functions. Comments explain why.
+- Screens emit request signals; only `AppRoot` swaps screens. No autoload singletons for gameplay state. Use `%UniqueName` nodes instead of long `get_node` paths.
+- Gameplay changes happen in fixed physics ticks only. Never move `RigidBody2D` by setting transforms to fake physics. Change collision with deferred calls. Visual effects must not influence simulation state or share its RNG.
+- Every gameplay object has a stable string ID. Never use list positions as persistent identity.
+- No `eval`, no loading user-authored data as executable resources/scripts. Level/save data is validated JSON.
+- Do not suppress errors, lower thresholds or delete tests to get green. A launched process is not proof of a passing test.
+- Generated text and docs: no em-dashes.
+
+## Testing rules
+
+- Domain tests (`tests/domain`) cover pure logic. Scene tests (`tests/scene`) drive the real scenes. Physics claims need the real physics step, never a mock.
+- Tests extend `TestCase` and must contain at least one assertion. Test files are `test_*.gd` and methods `test_*`.
+- Scene tests extend `SceneTestCase` (`tests/scene/scene_test_case.gd`), which sets an explicit window size (the headless default is 64x64 and distorts layout) and offers `click`, `send_key` and `set_window_size` helpers that use the real input pipeline. Prefer these over `pressed.emit()` for anything about input or layout. Send keyboard input as `InputEventKey`, not `InputEventAction`.
+- `tests/harness_fixtures/` contains deliberately failing tests used only by `verify-harness.ps1`. Never add it to a suite.
+- Update `docs/PROGRESS.md` with real commands and results after each stage. Mark manual checks as pending, never passed, until a human has done them.
+
+## Scope discipline
+
+Work one stage at a time and stop at the stage boundary. Exclusions are listed in `docs/DESIGN.md` (no match-3, lives/energy timers, ads, accounts, servers, IAP, copied Homescapes assets).
+
+## Preserve user work
+
+This folder is not a Git repository yet. Do not delete or overwrite files you did not create. If a repository is initialised, never discard unrelated changes.
