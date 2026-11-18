@@ -80,4 +80,4 @@ Work one stage at a time and stop at the stage boundary. Exclusions are listed i
 
 ## Preserve user work
 
-This folder is not a Git repository yet. Do not delete or overwrite files you did not create. If a repository is initialised, never discard unrelated changes.
+This folder is a Git repository. Do not delete or overwrite files you did not create, and never discard unrelated changes. The prompt pack is listed in `.gitignore` but is still tracked until the user runs `git rm --cached Pin_Puzzle_Game_Claude_Code_Prompts.md`; do not edit it.

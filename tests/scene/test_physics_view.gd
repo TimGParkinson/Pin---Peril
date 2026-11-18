@@ -76,6 +76,46 @@ func test_back_and_restart_free_the_world_and_every_body() -> void:
 	assert_false(is_instance_valid(instance_from_id(second_world_id)), "and on Back")
 
 
+## Counts physics bodies in the whole tree, so a world that survived a screen change shows up.
+func _count_bodies(node: Node) -> int:
+	var total: int = 1 if node is PhysicsBody2D else 0
+	for child: Node in node.get_children():
+		total += _count_bodies(child)
+	return total
+
+
+func test_restarting_several_times_in_one_frame_while_tokens_move_leaves_exactly_one_world() -> void:
+	var level: LevelScreen = await _open_level()
+	await _wait_physics_ticks(5)
+	assert_true(level.world.fastest_token_speed() > 20.0, "the tokens are really moving when restart is pressed (%.1f)" % level.world.fastest_token_speed())
+	var old_ids: Array[int] = [level.world.get_instance_id()]
+	# Three restarts with no frame between them, as fast as input could ever deliver them.
+	for _i: int in 3:
+		app.restart_level()
+		old_ids.append((app.current_node as LevelScreen).world.get_instance_id())
+	await settle_frames()
+	var current: LevelScreen = app.current_node as LevelScreen
+	for index: int in old_ids.size() - 1:
+		assert_false(is_instance_valid(instance_from_id(old_ids[index])), "world %d from an earlier restart is gone" % index)
+	assert_eq(current.world.get_instance_id(), old_ids[old_ids.size() - 1])
+	assert_eq(_count_bodies(tree.root), 4 + 3 + 5, "one world only: 4 walls, 3 pins, 5 tokens")
+	assert_true(current.world.tick_count <= 30, "the surviving world is fresh (%d ticks)" % current.world.tick_count)
+
+
+func test_escape_while_tokens_are_moving_removes_every_body_and_the_next_play_is_fresh() -> void:
+	var level: LevelScreen = await _open_level()
+	await _wait_physics_ticks(5)
+	assert_true(level.world.fastest_token_speed() > 20.0, "the tokens are really moving when Escape is pressed")
+	await send_key(KEY_ESCAPE)
+	await settle_frames()
+	assert_eq(app.current_screen, AppRoot.Screen.MENU)
+	assert_eq(_count_bodies(tree.root), 0, "no physics body outlives the level screen")
+	var again: LevelScreen = await _open_level()
+	assert_true(again.world.tick_count <= 30, "a new attempt, not the old world (%d ticks)" % again.world.tick_count)
+	assert_eq(_count_bodies(tree.root), 4 + 3 + 5)
+	assert_false(is_instance_valid(level), "the old screen is freed")
+
+
 func test_debug_overlay_is_off_by_default_and_f_keys_toggle_each_layer() -> void:
 	assert_true(OS.is_debug_build(), "these tests run on a debug build")
 	var level: LevelScreen = await _open_level()
