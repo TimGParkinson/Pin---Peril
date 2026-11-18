@@ -1,0 +1,530 @@
+{
+	"allowed_mechanics": [],
+	"design_size": [
+		1600.0,
+		900.0
+	],
+	"goals": [
+		{
+			"accepts": [
+				"token"
+			],
+			"id": "goal.collector",
+			"kind": "collector",
+			"protected": true,
+			"rect": [
+				1250.0,
+				806.0,
+				140.0,
+				42.0
+			]
+		}
+	],
+	"hazards": [],
+	"known_sequences": [],
+	"level_id": "dev.physics_lab",
+	"meta": {
+		"author": "Pin Puzzle Project",
+		"created": "2026-11-17",
+		"notes": "Development level for Prompt 03, not part of the campaign. A 48 token pile on a gentle ramp, a 104 unit opening under the hopper wall, a second ramp running the other way, and a 45 degree funnel with a 100 unit exit. No pins: the tokens just flow. Open it with: godot --path . -- --level=dev.physics_lab",
+		"source": "handcrafted"
+	},
+	"objective": {
+		"allowed_token_losses": 0,
+		"collector_ids": [
+			"goal.collector"
+		],
+		"fail_conditions": [],
+		"required_tokens": 48
+	},
+	"pins": [],
+	"schema_version": 1,
+	"sim_config_version": 2,
+	"spawns": [
+		{
+			"id": "token.1",
+			"material": "token",
+			"position": [
+				112.0,
+				270.0
+			]
+		},
+		{
+			"id": "token.2",
+			"material": "token",
+			"position": [
+				152.0,
+				270.0
+			]
+		},
+		{
+			"id": "token.3",
+			"material": "token",
+			"position": [
+				192.0,
+				270.0
+			]
+		},
+		{
+			"id": "token.4",
+			"material": "token",
+			"position": [
+				232.0,
+				270.0
+			]
+		},
+		{
+			"id": "token.5",
+			"material": "token",
+			"position": [
+				272.0,
+				270.0
+			]
+		},
+		{
+			"id": "token.6",
+			"material": "token",
+			"position": [
+				312.0,
+				270.0
+			]
+		},
+		{
+			"id": "token.7",
+			"material": "token",
+			"position": [
+				352.0,
+				270.0
+			]
+		},
+		{
+			"id": "token.8",
+			"material": "token",
+			"position": [
+				392.0,
+				270.0
+			]
+		},
+		{
+			"id": "token.9",
+			"material": "token",
+			"position": [
+				112.0,
+				234.0
+			]
+		},
+		{
+			"id": "token.10",
+			"material": "token",
+			"position": [
+				152.0,
+				234.0
+			]
+		},
+		{
+			"id": "token.11",
+			"material": "token",
+			"position": [
+				192.0,
+				234.0
+			]
+		},
+		{
+			"id": "token.12",
+			"material": "token",
+			"position": [
+				232.0,
+				234.0
+			]
+		},
+		{
+			"id": "token.13",
+			"material": "token",
+			"position": [
+				272.0,
+				234.0
+			]
+		},
+		{
+			"id": "token.14",
+			"material": "token",
+			"position": [
+				312.0,
+				234.0
+			]
+		},
+		{
+			"id": "token.15",
+			"material": "token",
+			"position": [
+				352.0,
+				234.0
+			]
+		},
+		{
+			"id": "token.16",
+			"material": "token",
+			"position": [
+				392.0,
+				234.0
+			]
+		},
+		{
+			"id": "token.17",
+			"material": "token",
+			"position": [
+				112.0,
+				198.0
+			]
+		},
+		{
+			"id": "token.18",
+			"material": "token",
+			"position": [
+				152.0,
+				198.0
+			]
+		},
+		{
+			"id": "token.19",
+			"material": "token",
+			"position": [
+				192.0,
+				198.0
+			]
+		},
+		{
+			"id": "token.20",
+			"material": "token",
+			"position": [
+				232.0,
+				198.0
+			]
+		},
+		{
+			"id": "token.21",
+			"material": "token",
+			"position": [
+				272.0,
+				198.0
+			]
+		},
+		{
+			"id": "token.22",
+			"material": "token",
+			"position": [
+				312.0,
+				198.0
+			]
+		},
+		{
+			"id": "token.23",
+			"material": "token",
+			"position": [
+				352.0,
+				198.0
+			]
+		},
+		{
+			"id": "token.24",
+			"material": "token",
+			"position": [
+				392.0,
+				198.0
+			]
+		},
+		{
+			"id": "token.25",
+			"material": "token",
+			"position": [
+				112.0,
+				162.0
+			]
+		},
+		{
+			"id": "token.26",
+			"material": "token",
+			"position": [
+				152.0,
+				162.0
+			]
+		},
+		{
+			"id": "token.27",
+			"material": "token",
+			"position": [
+				192.0,
+				162.0
+			]
+		},
+		{
+			"id": "token.28",
+			"material": "token",
+			"position": [
+				232.0,
+				162.0
+			]
+		},
+		{
+			"id": "token.29",
+			"material": "token",
+			"position": [
+				272.0,
+				162.0
+			]
+		},
+		{
+			"id": "token.30",
+			"material": "token",
+			"position": [
+				312.0,
+				162.0
+			]
+		},
+		{
+			"id": "token.31",
+			"material": "token",
+			"position": [
+				352.0,
+				162.0
+			]
+		},
+		{
+			"id": "token.32",
+			"material": "token",
+			"position": [
+				392.0,
+				162.0
+			]
+		},
+		{
+			"id": "token.33",
+			"material": "token",
+			"position": [
+				112.0,
+				126.0
+			]
+		},
+		{
+			"id": "token.34",
+			"material": "token",
+			"position": [
+				152.0,
+				126.0
+			]
+		},
+		{
+			"id": "token.35",
+			"material": "token",
+			"position": [
+				192.0,
+				126.0
+			]
+		},
+		{
+			"id": "token.36",
+			"material": "token",
+			"position": [
+				232.0,
+				126.0
+			]
+		},
+		{
+			"id": "token.37",
+			"material": "token",
+			"position": [
+				272.0,
+				126.0
+			]
+		},
+		{
+			"id": "token.38",
+			"material": "token",
+			"position": [
+				312.0,
+				126.0
+			]
+		},
+		{
+			"id": "token.39",
+			"material": "token",
+			"position": [
+				352.0,
+				126.0
+			]
+		},
+		{
+			"id": "token.40",
+			"material": "token",
+			"position": [
+				392.0,
+				126.0
+			]
+		},
+		{
+			"id": "token.41",
+			"material": "token",
+			"position": [
+				112.0,
+				90.0
+			]
+		},
+		{
+			"id": "token.42",
+			"material": "token",
+			"position": [
+				152.0,
+				90.0
+			]
+		},
+		{
+			"id": "token.43",
+			"material": "token",
+			"position": [
+				192.0,
+				90.0
+			]
+		},
+		{
+			"id": "token.44",
+			"material": "token",
+			"position": [
+				232.0,
+				90.0
+			]
+		},
+		{
+			"id": "token.45",
+			"material": "token",
+			"position": [
+				272.0,
+				90.0
+			]
+		},
+		{
+			"id": "token.46",
+			"material": "token",
+			"position": [
+				312.0,
+				90.0
+			]
+		},
+		{
+			"id": "token.47",
+			"material": "token",
+			"position": [
+				352.0,
+				90.0
+			]
+		},
+		{
+			"id": "token.48",
+			"material": "token",
+			"position": [
+				392.0,
+				90.0
+			]
+		}
+	],
+	"title": "Physics Lab (development)",
+	"walls": [
+		{
+			"id": "wall.outer",
+			"kind": "polyline",
+			"points": [
+				[
+					80.0,
+					60.0
+				],
+				[
+					80.0,
+					860.0
+				],
+				[
+					1520.0,
+					860.0
+				],
+				[
+					1520.0,
+					60.0
+				]
+			],
+			"thickness": 24.0
+		},
+		{
+			"id": "wall.hopper_right",
+			"kind": "polyline",
+			"points": [
+				[
+					520.0,
+					60.0
+				],
+				[
+					520.0,
+					230.0
+				]
+			],
+			"thickness": 24.0
+		},
+		{
+			"id": "wall.ramp_a",
+			"kind": "polyline",
+			"points": [
+				[
+					92.0,
+					300.0
+				],
+				[
+					760.0,
+					390.0
+				]
+			],
+			"thickness": 24.0
+		},
+		{
+			"id": "wall.ramp_b",
+			"kind": "polyline",
+			"points": [
+				[
+					700.0,
+					500.0
+				],
+				[
+					1300.0,
+					620.0
+				]
+			],
+			"thickness": 24.0
+		},
+		{
+			"id": "wall.funnel_left",
+			"kind": "polyline",
+			"points": [
+				[
+					1158.0,
+					640.0
+				],
+				[
+					1258.0,
+					740.0
+				]
+			],
+			"thickness": 24.0
+		},
+		{
+			"id": "wall.funnel_right",
+			"kind": "polyline",
+			"points": [
+				[
+					1482.0,
+					640.0
+				],
+				[
+					1382.0,
+					740.0
+				]
+			],
+			"thickness": 24.0
+		}
+	]
+}

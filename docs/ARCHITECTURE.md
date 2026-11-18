@@ -1,6 +1,6 @@
 # Architecture
 
-Status: Phase 1 in progress. Built: the presentation shell, level data (schema, validation, safe loading), the event contract, runtime level instances, and the test tooling. Not built yet: physics, pins, rules and the shared simulation runner. Sections say which parts are built.
+Status: Phase 1 in progress. Built: the presentation shell, level data (schema, validation, safe loading), the event contract, runtime level instances, the physics world for walls and brass tokens, and the test tooling. Not built yet: pin pulling, rules and the shared simulation runner. Sections say which parts are built.
 
 ## Toolchain decisions
 
@@ -18,7 +18,7 @@ Matching export templates: `Godot_v4.6.2-stable_export_templates.tpz`, installed
 
 ### Physics
 
-Built-in GodotPhysics2D, fixed `physics/common/physics_ticks_per_second = 60`, mirrored by `SimConfig.TICK_RATE` and guarded by a domain test. Godot physics is not guaranteed deterministic across machines or builds; the project treats verified solutions as evidence under recorded conditions.
+Built-in GodotPhysics2D, fixed `physics/common/physics_ticks_per_second = 60`, mirrored by `SimConfig.TICK_RATE` and guarded by a domain test. Gravity, sleep thresholds and solver iterations are pinned in `project.godot`, recorded in `SimConfig`, and re-checked by `SimWorld.build` (a mismatch refuses to build). Token damping, friction, bounce, CCD and the speed limit are set per body from `SimTuning`. All numbers, the measurements behind them and the body limit are in [PHYSICS.md](PHYSICS.md). Godot physics is not guaranteed deterministic across machines or builds; the project treats verified solutions as evidence under recorded conditions.
 
 ### Test framework
 
@@ -49,14 +49,18 @@ Built so far:
 
 - data: `LevelSchema`, `LevelDefinition`, `LevelCodec`, `LevelValidator`, `LevelGeometry`, `LevelLoader`, `ValidationReport`
 - rules: `LevelEvent`, `EventLog`, `TerminalResult` (event contract only, no rule logic yet)
-- sim: `SimConfig`, `LevelInstance`, `LevelLibrary`
-- presentation: `UiMetrics`, `AppRoot`, `MainMenu`, `LevelScreen`, `BoardView`
+- sim: `SimConfig`, `SimTuning`, `LevelInstance`, `LevelLibrary`, `SimWorld` (the live physics world), `BoardColliders` (collision shapes from geometry), `TokenBody`, `StaticPartBody`
+- presentation: `UiMetrics`, `AppRoot`, `MainMenu`, `LevelScreen`, `BoardView`, `TokenVisual`, `PhysicsDebugOverlay`
 
 ### Presentation shell (built)
 
 `scenes/main.tscn` is an `AppRoot`. It owns exactly one screen at a time. `MainMenu` and `LevelScreen` emit request signals (`play_requested`, `quit_requested`, `back_requested`, `restart_requested`); only `AppRoot` swaps screens, always freeing the old one and instantiating a new one, so restart cannot carry stale state. No autoloads, no `change_scene_to_file`, which also makes the flow testable by instantiating `AppRoot` under the test tree.
 
-## Shared simulation runner (planned, Prompt 03 to 05, 16)
+### Physics world (built, Prompt 03)
+
+`SimWorld` (sim layer, a `Node2D`) builds static bodies for walls and pins and one `RigidBody2D` per token from a `LevelInstance`, then lets the engine step them at the fixed tick. It sits at the origin and ignores its parent's transform (`top_level`), so physics coordinates are design coordinates; presentation scales the board. `LevelScreen` owns one world per attempt, a sibling of the `BoardRoot` that draws the board, so restart frees the world and builds a new one from the same definition. Tokens are only drawn by presentation (`BoardView` moves a `TokenVisual` per body once a tick, and engine physics interpolation smooths it); presentation never writes to the world. Collision shapes come from `BoardColliders` and match what `BoardView` draws exactly. Details, tuning and measurements: [PHYSICS.md](PHYSICS.md).
+
+## Shared simulation runner (planned, Prompt 04 to 05, 16)
 
 One class, `SimulationRunner`, used by both live play and automated replay. Replay must never reimplement rules.
 
@@ -113,12 +117,13 @@ Three independent versions, recorded with every replay result and validation rec
 | parse | `tests/runner/parse_check.gd` | Loads every `.gd/.tscn/.tres` | import |
 | domain | `tests/domain` | Pure logic, project-setting guards | import |
 | scene | `tests/scene` | Real scenes driven by real mouse/key events and measured layout at several window sizes; `-Windowed` reruns on the real renderer | import |
+| physics | `tests/physics` | The real physics step: gravity, collision geometry against the engine's own point queries, tunnelling, flow through openings, piles, repeatability. Run with `--fixed-fps 60` (one tick per frame, no clock waits) by `scripts/test-physics.ps1`. `profile_physics.gd` is the timing tool, not a test | import |
 | harness | `tests/harness_fixtures` | Deliberate failures, used only by `verify-harness.ps1` | import |
 
 The layer rules above are enforced by `tests/domain/test_architecture_layers.gd`: no source file may reference a class from a higher layer, and data and rules code may not mention Nodes or the scene tree. Adding a new folder under `src/` fails that test until the folder is classified in it.
 
-Headless scene tests run with the dummy display and audio drivers, so they prove structure and flow, **not** rendering, touch input or Windows display scaling. Those are manual checks listed in PROGRESS. Physics replay tests arrive with the simulation stages.
+Headless scene tests run with the dummy display and audio drivers, so they prove structure and flow, **not** rendering, touch input or Windows display scaling. Those are manual checks listed in PROGRESS. The physics suite is real physics but still headless; its `-Windowed` form repeats it on the real renderer. Physics replay of recorded solutions arrives with the simulation stages.
 
 ## Folder conventions
 
-`src/<layer>/` for code, `scenes/<area>/` for scenes, `tests/<suite>/` for tests, `scripts/` for Windows tooling, `docs/` for documents. Level data lives in `levels/` (built-in, JSON only) and, for imported or generated content, `user://levels/`. The export preset must include `*.json` for `levels/` (Prompt 17).
+`src/<layer>/` for code, `scenes/<area>/` for scenes, `tests/<suite>/` for tests, `scripts/` for Windows tooling, `docs/` for documents. Level data lives in `levels/` (built-in, JSON only; `dev.*` levels are development fixtures, not campaign levels) and, for imported or generated content, `user://levels/`. The export preset must include `*.json` for `levels/` (Prompt 17).

@@ -49,7 +49,9 @@ func test_restart_builds_a_fresh_instance_with_identical_starting_geometry() -> 
 	assert_ne(second.instance, first_instance, "a new runtime instance")
 	assert_ne(second.board_view.get_instance_id(), first_view_id, "a new board view")
 	assert_false(is_instance_valid(instance_from_id(first_screen_id)), "the old screen is freed")
-	assert_eq(second.instance.state_signature(), initial_state, "identical initial state")
+	# Tokens are live physics bodies now, so the running state moves on; what must be identical
+	# is the state the instance was created with (the live world is checked in test_physics_view).
+	assert_eq(second.instance.initial_state_signature, initial_state, "identical initial state")
 	assert_eq(second.instance.geometry_signature(), geometry, "identical initial geometry")
 	assert_eq(second.level_definition.geometry_signature(), source_signature, "the shared definition was never modified")
 	assert_eq(second.board_view.design_rect(), Rect2(0.0, 0.0, 1600.0, 900.0))
@@ -64,7 +66,7 @@ func test_leaving_and_replaying_gives_the_same_starting_level() -> void:
 	assert_eq(app.current_screen, AppRoot.Screen.MENU)
 	var second: LevelScreen = await _open_level()
 	assert_eq(second.instance.geometry_signature(), geometry)
-	assert_eq(second.instance.state_signature(), state)
+	assert_eq(second.instance.initial_state_signature, state)
 	assert_eq(second.level_definition.geometry_hash(), first_hash)
 
 
@@ -78,7 +80,7 @@ func test_many_restarts_never_accumulate_boards_or_change_the_start() -> void:
 		level = app.current_node as LevelScreen
 		assert_eq(level.board_root.get_child_count(), 1, "exactly one board view")
 		assert_eq(level.instance.geometry_signature(), geometry)
-		assert_eq(level.instance.state_signature(), state)
+		assert_eq(level.instance.initial_state_signature, state)
 	assert_eq(app.get_child_count(), 1)
 
 

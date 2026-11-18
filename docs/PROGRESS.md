@@ -4,7 +4,9 @@ Single source of truth for what has actually been done and verified. Record real
 
 ## Current stage
 
-**Prompt 02 (versioned level data and validation): verification pass done 2026-11-17. Automated checks PASS (domain 84, scene 28, all harness and parse checks). Original manual check PASS (developer). The verification pass fixed 6 defects, 3 of them in code the manual check had covered, so a 30-second manual re-look is PENDING.** Verdict: **PASS pending that re-look.** Details in "Prompt 02" and "Verification pass" below. Do not start Prompt 03 until the re-look is done.
+**Prompt 03 (walls, tokens and reliable 2D physics): implemented 2026-11-17. All automated checks PASS (parse 58 files, harness 6 of 6 detected, domain 98, scene 37, physics 31; scene also windowed, physics also windowed). Manual check DONE 2026-11-18 (user reported it done, no issues; script at the end of the "Prompt 03" section). The reusable Verification Prompt has not been run yet.** Do not start Prompt 04 until the manual check is done and the Verification Prompt has been run.
+
+**Prompt 02 (versioned level data and validation): verification pass done 2026-11-17, PASS pending a 30-second manual re-look of the level screen.** The level screen changed again in Prompt 03, so the re-look is folded into the Prompt 03 manual script below (steps 1, 5 and 8). Details in "Prompt 02" and "Verification pass" below.
 
 **Prompt 01 (project scaffold): signed off, PASS.**
 
@@ -288,6 +290,126 @@ Result: all five steps passed (before the verification pass).
 
 **Re-look (PENDING, 30 seconds)** because the verification pass touched the level screen: run `C:\Tools\Godot\godot.exe --path .`, click Play and confirm the board looks the same as before; click Restart and Back a few times; shrink the window and confirm Back and Restart stay in the top corners with the title between them. Record pass or fail here.
 
+## Prompt 03: walls, tokens and reliable 2D physics (2026-11-17)
+
+Status: **implemented; automated checks PASS; manual check PENDING; Verification Prompt not yet run.** Full numbers, tables and reasoning are in [PHYSICS.md](PHYSICS.md); this section records what was built, what was run, what went wrong and what is left.
+
+### Acceptance criteria (from Prompt 03)
+
+| Criterion | Evidence | Status |
+|---|---|---|
+| Static chamber walls and a bounded number of dynamic brass tokens in Godot 2D physics | `SimWorld`: a `StaticBody2D` per wall and pin, a `RigidBody2D` per token, limit 150 (`SimConfig.MAX_DYNAMIC_BODIES` = `LevelSchema.MAX_SPAWNS`); 31 physics tests | PASS |
+| Simple collision shapes, visual detail separate from collision | Capsule per polyline segment, convex pieces per polygon, rectangle plus disc per pin (`BoardColliders`); decoration never adds collision | PASS |
+| Specify wall thickness, token radius, clearances, mass, friction, bounce, gravity, tick rate | Table in PHYSICS.md; values in `SimConfig`, pinned in `project.godot`, re-checked by `SimWorld.build`, recorded text in `test_sim_config.gd` | Done |
+| Collision geometry visibly matches playable boundaries | Physics point query vs level data over a 6 unit grid on 3 levels, zero disagreements; overlay draws the live physics shapes; screenshots | PASS (automated and visual); manual PENDING |
+| Debug overlays for collision shapes, body ids, velocities | `PhysicsDebugOverlay`, F2 shapes, F3 ids, F4 velocities, F5 statistics; scene tests | PASS (automated); manual PENDING |
+| Test sloped channels, corners, narrow openings, piles | Ramps 1 to 60 degrees, corners 20 to 120 degrees, openings 1.0 to 5.0 diameters, piles of 25 to 300 (PHYSICS.md tables); `test_flow.gd` | PASS |
+| CCD where justified by observed tunnelling, not indiscriminately | Observed: thin polygons tunnel at the speed limit with CCD off (6 of 120 plates, 12 of 72 wedges); ray CCD removes it, shape-cast does nothing. Ray CCD on tokens only | PASS, see correction below |
+| Avoid tiny bodies, thin walls, overlapping spawns | Token 28 across, wall minimum 8, plate minimum 4 (tested), spawn gap 2 (validator, unchanged) | PASS |
+| Cosmetic particles are not gameplay bodies | None added; PHYSICS.md states the rule | Done |
+| Tokens flow through intended openings without unexplained leaks or persistent jams across repeated runs | 20 seeded crowds of 36 pass a 98 unit opening 20 of 20; ramps 5 to 60 degrees 36 of 36; corners, piles and the lab level settle with nothing outside; jams below 3 diameters are shown and explained | PASS |
+| Profile a typical board and establish an initial body-count limit | `scripts\profile-physics.ps1`; limit 150 kept, measured (mean 1.0 ms, worst 2.6 ms headless at 150) | PASS, limited to one machine |
+| No custom fluid simulation; water cosmetic only | None built | Done |
+
+### Built
+
+- `src/sim/`: `SimWorld`, `BoardColliders`, `TokenBody`, `StaticPartBody`, `SimTuning`; `SimConfig` gained gravity, sleep and solver mirrors, layers, token tuning, CCD, speed limit, body limit and measured design guidance; **`CONFIG_VERSION` is now 2**; `LevelInstance.create(null)` no longer crashes.
+- `src/presentation/`: `TokenVisual`, `PhysicsDebugOverlay`; `BoardView` follows the world (and draws pins and walls exactly as their colliders); `LevelScreen` builds one world per attempt and handles F2 to F5; `AppRoot` accepts `--level=<id>` in debug builds.
+- `project.godot`: gravity 1000, sleep thresholds, solver iterations pinned, physics interpolation on.
+- Data: `levels/workshop.three_pins.json` moved to `sim_config_version` 2 (geometry hash unchanged); new development level `levels/dev.physics_lab.json` (48 tokens, ramps, a 104 unit opening, a funnel).
+- `LevelSchema`: `MAX_SPAWNS` documented as measured; token radius final, scrap and core still provisional.
+- Tests: `tests/physics/` (new suite: `PhysicsTestCase`, `PhysicsScenarios`, 4 test files, `profile_physics.gd`), `tests/domain/test_board_colliders.gd`, additions to `test_sim_config.gd`, `test_level_instance.gd`, `test_builtin_levels.gd`, `tests/scene/test_physics_view.gd`; two old scene assertions changed (see below).
+- Scripts: `test-physics.ps1`, `profile-physics.ps1`, `test-all.ps1` now includes physics.
+- Docs: new PHYSICS.md; README, ARCHITECTURE, LEVEL_FORMAT, DESIGN, CLAUDE updated.
+
+### Commands run and actual results (Windows 11, PowerShell 5.1, Godot 4.6.2, i7-7700, GTX 1060)
+
+| Command | Result |
+|---|---|
+| `scripts\test-all.ps1` (final code) | exit 0: import PASS; parse 58 files, 0 failures; harness 6 of 6 detected; domain 98 passed; scene 37 passed; physics 31 passed (about 80 s) |
+| `scripts\test-all.ps1 -Clean` (final code, after the mutation sweep) | exit 0: clean import, parse 58 files, harness 6 of 6 detected, domain 98, scene 37, physics 31 (about 60 s) |
+| `scripts\test-scenes.ps1 -Windowed` | exit 0, 37 passed |
+| `scripts\test-physics.ps1 -Windowed` | exit 0, 31 passed (about 57 s, with `--disable-vsync`) |
+| `scripts\profile-physics.ps1` and `-Windowed` | tables in PHYSICS.md; 150 tokens mean 1.0 ms, worst 2.6 ms headless |
+| Compiler warnings | none from project code; the only `WARNING` in test output is the known `1e999` engine message |
+| Screenshots, real renderer | lab level and three-pin level with every overlay layer; shapes sit exactly on the drawn walls and pins |
+
+### Corrections and defects found while building
+
+1. **The first tunnelling tests were vacuous (the biggest finding).** Every drop ran a fixed 230 ticks, but a token needs about 265 ticks to fall the shaft at the speed limit, so at the limit no token had reached the floor. "0 tunnelled" at the shipped limit and the whole "margin to 1200" table proved nothing. I found it while writing PHYSICS.md (the fall time did not add up), measured the arrival (lowest token y=3473 of a 3996 floor at tick 230), re-measured with drops that run until every token has landed or gone through and record impact speed, and the conclusion **reversed**: thin polygon plates and wedges tunnel at the speed limit itself, and an 8 unit polyline from about 1100. So CCD (ray) is justified and is now on, and the speed limit is only defense in depth. This is exactly what the rule "assert the interesting case occurred" in CLAUDE.md exists for, and I had not applied it to my own tests. New tests assert `finished`, arrival and impact speed, and a mutation (drops cut back to 230 ticks) now fails six tests.
+2. **`LevelInstance.create(null)` crashed inside the validator** (Prompt 02 gap, found by a scenario that returned null). It now returns null with a `level.missing` issue. Test added.
+3. Several of my own scenario levels were invalid or flawed: jittered spawns closer than the legal gap (the validator was right), and a lab layout whose ramps left only 1.4 token widths between them (an accidental narrow opening that jammed the pile), then a funnel exit 36 units above the floor (a pile backed up into it). Both lab layouts were redrawn after screenshots.
+4. Wrong test expectations, all fixed with the physics unchanged: acceleration compared with gravity instead of gravity minus damping times speed (2 percent off); 32-bit float properties compared exactly; "nothing passes an opening one diameter wide" (one token did, so the test uses 0.9); a scene test that assumed the world had already ticked before it started counting (timing dependent, rewritten relative); a "signature tracks every change" test that used the new default as its change.
+5. `Performance.TIME_PHYSICS_PROCESS` does not update per tick (the same figure for every row), so the profile times between `physics_frame` signals instead.
+6. A windowed physics run without `--disable-vsync` waits for the display each tick (about 10 minutes); the scripts pass the flag.
+7. A first reading of the ray CCD cost from one noisy run was unreliable; repeated back-to-back runs show run-to-run noise of about 25 percent, larger than the CCD effect, so PHYSICS.md says "between nothing and about 20 percent".
+8. Two existing scene assertions compared a live instance's `state_signature()` with its initial one; once tokens move that is no longer equal, so they compare `initial_state_signature` and a new test checks the live world starts at the authored positions.
+
+### Mutation evidence (temporary edits to product code or tests, each reverted and the file hash verified identical)
+
+All 20 mutations were caught (final code, 2026-11-17). Failing counts are tests that failed under that mutation.
+
+| Mutation | Suite | Result |
+|---|---|---|
+| Speed limit removed | physics | 2 fail |
+| Capsule radius shrunk | physics | 5 fail |
+| Capsule not rotated onto its segment | domain | 2 fail |
+| World build skips the project settings check | physics | 1 fails |
+| World not `top_level` | scene | 1 fails |
+| Concave polygon replaced by its convex hull | domain | 1 fails |
+| `LevelInstance.create(null)` guard removed | domain | 1 fails |
+| Pin knob shape dropped | domain | 2 fail |
+| Token records not synced from bodies | physics | 1 fails |
+| Token visuals not moved with bodies | scene | 1 fails |
+| Speed limit raised to 1500 | physics | 2 fail |
+| `SimConfig` gravity differs from project | domain | 3 fail |
+| Tokens collide with nothing | physics | 15 fail |
+| Tokens ignore each other | physics | 4 fail |
+| Overlay skips token shapes | scene | 1 fails |
+| Debug keys ignored | scene | 1 fails |
+| Ray CCD turned off | physics | 2 fail |
+| Drops cut back to the old 230 ticks (test mutation) | physics | 6 fail |
+| Token friction changed | domain | 1 fails |
+| Speed limit raised only (CCD on) | domain | 1 fails (recorded tuning) |
+
+Two earlier mutation rounds exposed gaps that were fixed: "tokens ignore each other" was caught only incidentally (a direct pile solidity test was added), and the speed limit's value was not pinned once CCD made it unnecessary for tunnelling (the recorded tuning test pins it).
+
+### Design decisions worth knowing
+
+- Pins are present as immovable static bodies. That is the minimum that makes the three-pin layout rest as authored (tokens sit on pin A); pulling is Prompt 04 and will replace this. Scrap and cores are not simulated (Prompt 06) and are drawn at their start positions.
+- `SimWorld` is a `top_level` node at the origin and a sibling of the scaled board, so physics runs in design coordinates. Putting bodies under the scaled `BoardRoot` would have scaled the physics bodies.
+- Both damping modes are REPLACE per body, so no project or area default can change the feel. Gravity and sleep live in `project.godot` (the engine owns them) and are verified on every build.
+- Sim config version bumped from 1 to 2 (the first physics tuning); the level file moved with it. `SimTuning.signature()` is the text recorded with results and is pinned by a test.
+- The speed limit stays at 1000 even though CCD made it unnecessary for tunnelling; the reasons and the fact that it is unproven are written down.
+- The overlay draws the live `CollisionShape2D` nodes via the engine's own `Shape2D.draw`, not the level data, so it cannot disagree with the physics.
+
+### Limitations and open items
+
+- Everything is measured on one machine. A low-end machine measurement is still owed (before Prompt 17), and the worst tick at 150 bodies leaves less than a threefold margin on this machine.
+- Open floors let piles creep: the lab pile took about 20 s to fall fully asleep. Prompt 04's settle thresholds and jam timeout must allow roughly that, or levels should wall in their collection bays.
+- The validator checks spawns against a pin's shaft, not its knob. Decide in Prompt 04.
+- Ray CCD follows only the token's centre path; no corner-clipping leak was found, but the speed limit is the only other guard.
+- Physics interpolation (smooth motion on displays that are not 60 Hz) is switched on and visually unchanged at 60 Hz, but smoothness at other refresh rates has not been judged by a human.
+- The Prompt 03 checkbox in `Pin_Puzzle_Game_Claude_Code_Prompts.md` is **not ticked**; tick it after the manual check.
+
+### Manual check (DONE 2026-11-18, reported by the user; about 5 minutes)
+
+Result: the user reported "Manual testing done" with no failures or issues. Per-step pass or fail was not itemised, and step 9 (above 60 Hz smoothness) was not separately reported. This also covers the Prompt 02 re-look (step 8).
+
+Run `C:\Tools\Godot\godot.exe --path .`
+
+1. Click **Play**. Expected: as before (cream board, brown walls, ramp, three pins A, B, C, collector bottom right, disposal bottom left), but the five gold tokens now **rest on pin A** (they drop a few units and stop; they do not fall through it) and the two dark squares sit on pin C. Pins are not clickable yet.
+2. Press **F2**. Expected: a thin cyan outline traces every wall exactly, magenta traces every pin including its round handle, green traces each token. Nothing drawn should poke past the brown or gold shapes or leave a gap. Press F2 again: it disappears.
+3. Press **F3**: ids like `token.1`, `wall.outer`, `pin.a` appear. **F4**: no arrows (everything is at rest). **F5**: a text block top left saying `awake 0` after a second or so, `outside board: 0`. Turn each off again.
+4. Click **Restart** a few times. Expected: tokens start identically each time and settle on pin A the same way.
+5. Resize the window (wide, tall, small) with F2 on. Expected: the outlines stay glued to the walls, the board stays centred and never covers Back or Restart, the title stays between the buttons.
+6. Close it and run `C:\Tools\Godot\godot.exe --path . -- --level=dev.physics_lab`, then Play. Expected: 48 tokens roll down a gentle ramp, squeeze through the gap under the short wall, fall onto a second ramp that runs to the right, drop into the V funnel and land on the floor beside the green collector box, settling after roughly 20 seconds. Nothing leaves the board. Press F4 while they move: arrows point the way they roll.
+7. Press Restart on the lab. Expected: the same story again.
+8. Press Esc on the level, then Play again. Expected: back at the menu, then a fresh level (this repeats the Prompt 02 re-look).
+9. If you have a monitor above 60 Hz: does the motion look smooth rather than stuttery? (Optional, not verified by me.)
+
+Record pass or fail for each step here.
+
 ## Next stage
 
-Prompt 03: walls, tokens and reliable 2D physics, built on `LevelInstance` and the three-pin level. Prerequisites in place: validated data, explicit spawn positions, stable ids, event contract, `SceneTestCase`, fixtures pattern. Wait for the Prompt 02 verification and sign-off first.
+Prompt 04 (pins and sequencing, settling), built on `SimWorld`. Prerequisites in place: real physics for walls and tokens with a recorded tuning, an immovable pin body per pin with a stable id, `LevelInstance` pin state, the event contract, settle observations (worst 20 s on an open floor), `PhysicsTestCase` and `PhysicsScenarios`. Wait for the Prompt 03 manual check and the Verification Prompt first.

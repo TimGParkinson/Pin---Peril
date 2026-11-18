@@ -6,6 +6,9 @@ extends TestCase
 ## validation once it exists (Prompt 16). Do not just paste in the new value.
 const THREE_PINS_GEOMETRY_HASH: String = "69c3fb5fe7ca8986f41133d2fef76f42302095bfb857c21c1b0959a241028f90"
 
+## Same rule for the development level used to check physics by eye (dev.physics_lab).
+const PHYSICS_LAB_GEOMETRY_HASH: String = "014a60033480f347591d57a200b1fb19a5caa284664f69e572c22f75ee6da84e"
+
 
 func test_at_least_one_builtin_level_exists_and_all_of_them_load() -> void:
 	var ids: PackedStringArray = LevelLibrary.list_builtin_ids()
@@ -48,6 +51,19 @@ func test_three_pin_level_has_the_expected_shape() -> void:
 func test_three_pin_geometry_has_not_changed_unnoticed() -> void:
 	var definition: LevelDefinition = LevelLibrary.load_builtin("workshop.three_pins").definition
 	assert_eq(definition.geometry_hash(), THREE_PINS_GEOMETRY_HASH)
+
+
+func test_physics_lab_has_the_features_it_exists_to_show_and_has_not_changed_unnoticed() -> void:
+	var result: LevelLoader.LoadResult = LevelLibrary.load_builtin("dev.physics_lab")
+	assert_true(result.is_ok(), result.report.summary())
+	var definition: LevelDefinition = result.definition
+	assert_eq(definition.geometry_hash(), PHYSICS_LAB_GEOMETRY_HASH)
+	assert_eq(definition.count_spawns("token"), 48, "a pile")
+	assert_eq(definition.spawns.size(), 48, "tokens only")
+	assert_true(definition.pins.is_empty(), "no pins: tokens just flow")
+	assert_true(definition.walls.size() >= 6, "ramps, a hopper wall, funnel arms")
+	assert_eq(definition.sim_config_version, SimConfig.CONFIG_VERSION)
+	assert_true(definition.meta.notes.contains("--level=dev.physics_lab"), "says how to open it")
 
 
 func test_every_spawn_in_the_three_pin_level_is_clear_with_margin() -> void:

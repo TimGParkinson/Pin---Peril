@@ -35,6 +35,13 @@ theme/custom="res://themes/base_theme.tres"
 [physics]
 
 common/physics_ticks_per_second=60
+common/physics_interpolation=true
+2d/default_gravity=1000.0
+2d/default_gravity_vector=Vector2(0, 1)
+2d/sleep_threshold_linear=2.0
+2d/sleep_threshold_angular=0.13962634015955
+2d/time_before_sleep=0.5
+2d/solver/solver_iterations=16
 
 [rendering]
 

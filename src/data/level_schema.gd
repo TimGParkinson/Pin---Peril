@@ -3,8 +3,10 @@ extends RefCounted
 ## Constants that define level data format version 1: limits, vocabularies and defaults.
 ##
 ## This is the single place that decides what a valid level may contain. Generators, the
-## editor and the loader all go through these values. Numbers marked PROVISIONAL are fixed
-## in the physics tuning stage (Prompt 03) and then bump the schema or sim config version.
+## editor and the loader all go through these values. The token radius and the body limit were
+## fixed by the physics tuning stage (Prompt 03, measurements in docs/PHYSICS.md); numbers still
+## marked PROVISIONAL are fixed when the stage that simulates them arrives. Changing any number
+## that alters what is playable bumps the sim config version.
 ## Data layer: no Node access, no dependency on other layers.
 
 ## Version of the on-disk format. Bump on any incompatible change and add a migration.
@@ -19,7 +21,10 @@ const MAX_WALL_POINTS: int = 256
 ## spawn clearance is walls times spawns. 64 walls of 256 points measured about 5.5 seconds.
 const MAX_TOTAL_WALL_POINTS: int = 1024
 const MAX_PINS: int = 16
-const MAX_SPAWNS: int = 150  # PROVISIONAL body-count ceiling until Prompt 03 profiling
+## Dynamic body ceiling per level. Measured in Prompt 03: 150 bodies cost about 0.9 ms per tick
+## on average and 2.4 ms at worst on the development machine. Must equal
+## SimConfig.MAX_DYNAMIC_BODIES (a test guards this; the data layer cannot read the sim layer).
+const MAX_SPAWNS: int = 150
 const MAX_GOALS: int = 8
 const MAX_HAZARDS: int = 16
 const MAX_SEQUENCES: int = 32
@@ -52,7 +57,9 @@ const MATERIAL_TOKEN: String = "token"
 const MATERIAL_SCRAP: String = "scrap"
 const MATERIAL_CORE: String = "core"
 
-## Radius of each material in design units. PROVISIONAL until Prompt 03.
+## Radius of each material in design units. Token 14 is final (Prompt 03: 28 units across, about
+## 1.75 percent of a 1600 unit board, three diameters fit in a 100 unit opening). Scrap and core
+## are PROVISIONAL until they are simulated (Prompt 06).
 const MATERIAL_RADIUS: Dictionary = {
 	"token": 14.0,
 	"scrap": 14.0,

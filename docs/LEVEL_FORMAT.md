@@ -24,13 +24,13 @@ Data is parsed with Godot's `JSON` class into plain values and read through a st
 | `schema_version` | int | must be 1 |
 | `level_id` | string | id, see below |
 | `title` | string | 1 to 200 characters |
-| `sim_config_version` | int | must equal the build's `SimConfig.CONFIG_VERSION` (currently 1) |
+| `sim_config_version` | int | must equal the build's `SimConfig.CONFIG_VERSION` (currently 2: version 1 had no physics, version 2 is the first physics tuning) |
 | `meta` | object | `author` (string), `created` (`YYYY-MM-DD`), `source` (`handcrafted`, `editor`, `generator`), `notes` (optional string, up to 1000) |
 | `design_size` | [w, h] | each side 200 to 4096 |
 | `allowed_mechanics` | string list | subset of `pins`, `scrap`, `hazard_cores`, `disposal_zones`, `hazard_zones` |
 | `walls` | list | up to 64 walls and 1024 points in total |
 | `pins` | list | up to 16 |
-| `spawns` | list | up to 150 (provisional) |
+| `spawns` | list | up to 150, the measured dynamic body limit (see [PHYSICS.md](PHYSICS.md)) |
 | `goals` | list | up to 8 |
 | `hazards` | list | up to 16 |
 | `objective` | object | see below |
@@ -50,7 +50,7 @@ Up to 256 points per wall and 1024 across all walls, all inside the design space
 
 **Pin**: `{"id", "tip", "handle", "thickness", "pull_direction", "pull_distance"}`. The pin is the segment from `tip` (blocks material) to `handle` (the player grabs it). It slides out along its own axis, so `pull_direction` must be a unit vector pointing from the tip toward the handle, and `pull_distance` must be at least the pin length (so the withdrawn pin clears its footprint). Length 40 to 2000, thickness 6 to 32, tip and handle inside the design space, pins at least 4 units apart.
 
-**Spawn**: `{"id", "material", "position"}` with material `token`, `scrap` or `core`. Positions are explicit and never randomised at runtime. Each body must be fully inside the design space and clear (by at least 2 units) of walls, pins, other spawns and every goal and hazard rectangle. Radii (provisional): token 14, scrap 14, core 16.
+**Spawn**: `{"id", "material", "position"}` with material `token`, `scrap` or `core`. Positions are explicit and never randomised at runtime. Each body must be fully inside the design space and clear (by at least 2 units) of walls, pins, other spawns and every goal and hazard rectangle. Radii: token 14 (final, see [PHYSICS.md](PHYSICS.md)), scrap 14 and core 16 (provisional until they are simulated).
 
 **Goal**: `{"id", "kind": "collector" | "disposal", "rect": [x, y, w, h], "accepts": [materials], "protected": bool}`. Rectangles are at least 20 per side and inside the design space. `protected` means delivering a material the goal does not accept is a failure (rules arrive in Prompt 05/06).
 
@@ -76,6 +76,7 @@ Every problem has a code, a path such as `pins[1].tip`, and a message. Tools and
 | Files | `path.rejected`, `file.missing`, `file.unreadable`, `file.too_large`, `id.file_mismatch` |
 | Header | `schema.version_unsupported`, `sim.version_mismatch`, `id.invalid`, `id.duplicate`, `text.invalid`, `meta.date_invalid`, `meta.source_invalid`, `design.size_invalid` |
 | Limits | `count.exceeded`, `number.not_finite` |
+| Instancing | `level.missing` (no definition was given to `LevelInstance.create`) |
 | Saving | `save.rounding` |
 | Mechanics | `mechanic.unknown`, `mechanic.unsupported`, `mechanic.duplicate`, `mechanic.undeclared_use` |
 | Walls | `wall.kind_invalid`, `wall.too_few_points`, `wall.thickness`, `wall.out_of_bounds`, `wall.degenerate_segment`, `wall.self_intersect`, `wall.polygon_area` |
@@ -89,7 +90,7 @@ Cheap checks run first. Oversized lists are refused before any entry is parsed, 
 
 ## Runtime and events
 
-A `LevelDefinition` is never played directly. `LevelInstance.create(definition)` validates it, deep-copies it, and builds mutable records (material positions and status, pin pulled flags). Changing an instance never changes the definition or any later instance, so restart always begins from the authored positions. Two signatures support tests: `geometry_signature()` (immutable geometry and starting positions, also available on the definition, with `geometry_hash()`) and `state_signature()` (all mutable state).
+A `LevelDefinition` is never played directly. `LevelInstance.create(definition)` validates it, deep-copies it, and builds mutable records (material positions and status, pin pulled flags). Changing an instance never changes the definition or any later instance, so restart always begins from the authored positions. While a `SimWorld` runs, it copies each token's position into the instance's material records every tick, so `state_signature()` shows where the tokens are now; `initial_state_signature` is the fixed record of where they began. Two signatures support tests: `geometry_signature()` (immutable geometry and starting positions, also available on the definition, with `geometry_hash()`) and `state_signature()` (all mutable state).
 
 `LevelEvent` types: `action_requested`, `action_accepted`, `action_rejected`, `material_collected`, `material_lost`, `material_destroyed`, `level_won`, `level_lost`, `level_jammed`. `EventLog` assigns a total order and refuses a second terminal event, any event after the terminal one, and a second resolution of the same material. Rules that emit these events arrive in later stages.
 

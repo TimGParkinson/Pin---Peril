@@ -1,4 +1,4 @@
-# Full verification: import, parse check, harness self-check, domain tests, scene tests.
+# Full verification: import, parse check, harness self-check, domain, scene and physics tests.
 # Stops at the first failing step and exits with its code.
 # Usage: powershell -ExecutionPolicy Bypass -File scripts\test-all.ps1 [-Clean]
 param([switch] $Clean)
@@ -8,7 +8,8 @@ $steps = @(
     @{ Name = 'parse';         Script = 'check-parse.ps1';    Params = @{} },
     @{ Name = 'harness';       Script = 'verify-harness.ps1'; Params = @{} },
     @{ Name = 'domain tests';  Script = 'test-domain.ps1';    Params = @{} },
-    @{ Name = 'scene tests';   Script = 'test-scenes.ps1';    Params = @{} }
+    @{ Name = 'scene tests';   Script = 'test-scenes.ps1';    Params = @{} },
+    @{ Name = 'physics tests'; Script = 'test-physics.ps1';   Params = @{} }
 )
 
 foreach ($step in $steps) {

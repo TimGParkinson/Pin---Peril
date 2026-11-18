@@ -38,6 +38,10 @@ var initial_state_signature: String = ""
 ## Validates `source` and builds a fresh instance. Returns null if the definition is not
 ## valid; the problems are appended to `report_out` when one is given.
 static func create(source: LevelDefinition, report_out: ValidationReport = null) -> LevelInstance:
+	if source == null:
+		if report_out != null:
+			report_out.add("$", "level.missing", "no level definition was given")
+		return null
 	var report: ValidationReport = LevelValidator.validate(source, SimConfig.CONFIG_VERSION)
 	if report_out != null:
 		report_out.merge(report)

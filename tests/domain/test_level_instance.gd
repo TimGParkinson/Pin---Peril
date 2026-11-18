@@ -34,6 +34,14 @@ func test_invalid_definitions_are_never_instantiated() -> void:
 	assert_true(report.has_code("id.duplicate"))
 
 
+func test_a_missing_definition_gives_null_and_a_reason_instead_of_a_crash() -> void:
+	# Found in Prompt 03: create(null) used to crash inside the validator.
+	var report: ValidationReport = ValidationReport.new()
+	assert_null(LevelInstance.create(null, report))
+	assert_true(report.has_code("level.missing"))
+	assert_null(LevelInstance.create(null), "also fine without a report")
+
+
 func test_a_definition_for_another_sim_version_is_not_instantiated() -> void:
 	var definition: LevelDefinition = LevelFixtures.minimal_definition()
 	definition.sim_config_version = SimConfig.CONFIG_VERSION + 1

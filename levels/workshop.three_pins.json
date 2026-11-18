@@ -111,7 +111,7 @@
 		}
 	],
 	"schema_version": 1,
-	"sim_config_version": 1,
+	"sim_config_version": 2,
 	"spawns": [
 		{
 			"id": "token.1",

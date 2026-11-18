@@ -10,6 +10,7 @@ enum Screen { NONE, MENU, LEVEL }
 
 const MENU_SCENE: PackedScene = preload("res://scenes/menu/main_menu.tscn")
 const LEVEL_SCENE: PackedScene = preload("res://scenes/level/level_screen.tscn")
+const LEVEL_ARGUMENT: String = "--level="
 
 signal screen_changed(screen: Screen)
 
@@ -36,7 +37,7 @@ func show_menu() -> void:
 ## Loads the default level from data, then shows it. The loaded definition is reused by
 ## restart_level; each screen still builds its own fresh LevelInstance from it.
 func show_level() -> void:
-	var result: LevelLoader.LoadResult = LevelLibrary.load_builtin(LevelLibrary.DEFAULT_LEVEL_ID)
+	var result: LevelLoader.LoadResult = LevelLibrary.load_builtin(_level_id_to_play())
 	if result.is_ok():
 		_level_definition = result.definition
 		_level_problem = ""
@@ -55,6 +56,23 @@ func restart_level() -> void:
 
 func quit_game() -> void:
 	get_tree().quit()
+
+
+## The built-in level Play opens: the default, or in debug builds the one named by a
+## `--level=<id>` argument after `--` on the command line (for example
+## `godot --path . -- --level=dev.physics_lab`). Unknown ids show the normal load problem.
+func _level_id_to_play() -> String:
+	return level_id_from_arguments(OS.get_cmdline_user_args(), OS.is_debug_build())
+
+
+## Pure form of the rule above, so it can be tested without a command line. Release builds
+## ignore the argument entirely.
+static func level_id_from_arguments(arguments: PackedStringArray, debug_build: bool) -> String:
+	if debug_build:
+		for argument: String in arguments:
+			if argument.begins_with(LEVEL_ARGUMENT):
+				return argument.trim_prefix(LEVEL_ARGUMENT)
+	return LevelLibrary.DEFAULT_LEVEL_ID
 
 
 func _switch_to(screen: Screen) -> void:

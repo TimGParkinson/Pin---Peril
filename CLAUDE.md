@@ -21,6 +21,8 @@ powershell -ExecutionPolicy Bypass -File scripts\check-parse.ps1     # load ever
 powershell -ExecutionPolicy Bypass -File scripts\verify-harness.ps1  # proves the checks can fail
 powershell -ExecutionPolicy Bypass -File scripts\test-domain.ps1
 powershell -ExecutionPolicy Bypass -File scripts\test-scenes.ps1 [-Windowed]  # -Windowed uses the real renderer
+powershell -ExecutionPolicy Bypass -File scripts\test-physics.ps1 [-Windowed]  # real physics, --fixed-fps 60 (one tick per frame)
+powershell -ExecutionPolicy Bypass -File scripts\profile-physics.ps1 [-Windowed]  # physics cost per tick at several body counts
 powershell -ExecutionPolicy Bypass -File scripts\check-env.ps1       # prerequisites
 ```
 
@@ -32,7 +34,7 @@ Five layers, dependencies point downward only: presentation -> progression, sim 
 
 - **data**: level definitions, strict codec, validator, safe loader (`docs/LEVEL_FORMAT.md`). No Node access. Every level, including generated ones, must pass `LevelLoader`/`LevelValidator`; never load level data with `load()`, `str_to_var` or similar.
 - **rules**: puzzle rules, events, state machine. Pure logic, no Node access.
-- **sim**: fixed-tick physics world and the shared `SimulationRunner` (live play and replay use the same code). No UI.
+- **sim**: the physics world (`SimWorld`, built, see `docs/PHYSICS.md`) and later the shared `SimulationRunner` (live play and replay use the same code). No UI.
 - **presentation**: scenes, UI, effects. Reads sim state and events, never decides outcomes.
 - **progression**: saves, settings, campaign. Consumes terminal results only.
 
@@ -60,6 +62,14 @@ Five layers, dependencies point downward only: presentation -> progression, sim 
 - A property or randomised test must assert that the interesting case actually occurred (count it). A probe that never reaches the case proves nothing; one such probe wrongly suggested a real bug was only theoretical.
 - Compare object counts with a small drift allowance, not exact equality (the real renderer shows +/-1 jitter), over many cycles so a real leak stands out.
 - Layout text can be longer than the layout expects. Anything showing data-supplied text (titles, error messages) must clip, wrap or cap it so it can never move the controls.
+- Physics tests use `PhysicsTestCase` and run only through `scripts/test-physics.ps1` (it passes `--fixed-fps 60`; without it 1000 ticks take 17 seconds). Build scenarios with `PhysicsScenarios` so every level still passes the real validator.
+- A drop, flow or settle test must run until the thing it measures has happened (every token landed, passed or asleep) and must assert that it did. A fixed tick count can end before anything arrives and "0 failures" then proves nothing: the first tunnelling tests stopped 35 ticks before the tokens reached the floor. Record the speed or state at the event and assert it.
+- Vary the phase of what you drop (start heights, offsets). Bodies released from one height meet a wall at one phase within a tick and test only one.
+- The engine stores physics properties as 32-bit floats: compare them with `assert_almost_eq`, not `assert_eq`.
+- Judge a physical quantity by what physics says it should be, not by the nominal constant (measured acceleration is gravity minus damping times speed, not gravity).
+- Do not read `Performance.TIME_PHYSICS_PROCESS` per tick (it does not update per tick); time between `physics_frame` signals. Windowed physics runs need `--disable-vsync` or each tick waits for the display.
+- Debug overlays and any other presentation read the world and never change it; tests compare a run with and without them.
+- Any change to a tuning number, CCD or the speed limit repeats `tests/physics/test_tunnelling.gd`, updates `docs/PHYSICS.md`, bumps `SimConfig.CONFIG_VERSION` and updates `RECORDED_TUNING` in `tests/domain/test_sim_config.gd`.
 - Domain tests that write files use `user://levels/_test_*.json` and clean up in `after_each`.
 - `tests/harness_fixtures/` contains deliberately failing tests used only by `verify-harness.ps1`. Never add it to a suite.
 - Update `docs/PROGRESS.md` with real commands and results after each stage. Mark manual checks as pending, never passed, until a human has done them.

@@ -4,7 +4,11 @@ extends SceneTree
 ## Usage (after a project import):
 ##   godot --headless --script res://tests/runner/test_runner.gd -- --suite=domain
 ##   godot --headless --script res://tests/runner/test_runner.gd -- --suite=scene
+##   godot --headless --fixed-fps 60 --script res://tests/runner/test_runner.gd -- --suite=physics
 ##   godot --headless --script res://tests/runner/test_runner.gd -- --dir=res://some/dir
+##
+## The physics suite steps real physics for thousands of ticks; without --fixed-fps 60 every
+## tick waits for the wall clock (1000 ticks take 17 seconds). Use scripts\test-physics.ps1.
 ##
 ## Exit codes: 0 = all passed, 1 = test failure or no tests found, 2 = bad arguments.
 ## Failure conditions: failed assertion, test with zero assertions, test file that fails
@@ -13,7 +17,8 @@ extends SceneTree
 const SUITES: Dictionary = {
 	"domain": ["res://tests/domain"],
 	"scene": ["res://tests/scene"],
-	"all": ["res://tests/domain", "res://tests/scene"],
+	"physics": ["res://tests/physics"],
+	"all": ["res://tests/domain", "res://tests/scene", "res://tests/physics"],
 }
 
 var _total: int = 0
@@ -72,7 +77,7 @@ func _parse_args(directories: Array[String]) -> bool:
 			printerr("RUNNER ERROR: unknown argument '%s'" % arg)
 			return false
 	if directories.is_empty():
-		printerr("RUNNER ERROR: pass --suite=<domain|scene|all> or --dir=<res://path>")
+		printerr("RUNNER ERROR: pass --suite=<domain|scene|physics|all> or --dir=<res://path>")
 		return false
 	return true
 

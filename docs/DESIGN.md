@@ -51,8 +51,8 @@ Phases follow the prompt pack stages in `Pin_Puzzle_Game_Claude_Code_Prompts.md`
 
 | Phase | Prompts | Outcome |
 |---|---|---|
-| 0 Scaffold | 01 | Project, menu, empty level, test runner, docs. **Current.** |
-| 1 Prototype core | 02 to 06 | Level data, walls and tokens, pins and sequencing, win/lose, scrap and hazards |
+| 0 Scaffold | 01 | Project, menu, empty level, test runner, docs. Done. |
+| 1 Prototype core | 02 to 06 | Level data, walls and tokens, pins and sequencing, win/lose, scrap and hazards. **Current** (02 and 03 built) |
 | 2 Prototype polish | 07, 08 | Original art kit, internal level editor, ten handcrafted levels |
 | 3 Complete game | 09 to 17 | Fans, portals, rescue/heater objectives, campaign and saves, hints, 30 levels, audio and accessibility, robustness harness, Windows export |
 | 4 Generation (optional, later) | 18 to 25 | Seeded templates, logical solver, real-physics validation, approved packs, endless mode |
@@ -73,6 +73,6 @@ A handcrafted campaign can ship after phase 3. Phase 4 must not destabilise it. 
 
 ## Open questions (decide in the stage that needs them)
 
-- Exact token radius, masses, friction, bounce, gravity, wall thickness and body-count limit: Prompt 03.
+- ~~Exact token radius, masses, friction, bounce, gravity, wall thickness and body-count limit~~: decided in Prompt 03, see [PHYSICS.md](PHYSICS.md).
 - Settle thresholds and maximum jam duration: Prompt 04.
 - Final public name: undecided; the working name implies nothing about availability.
